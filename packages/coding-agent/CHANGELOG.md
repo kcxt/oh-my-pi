@@ -20,6 +20,7 @@
 - RPC `append_custom_entry { customType, data? }` journals a `custom` entry on the current branch through the session manager and returns its id; the model never sees it
 - RPC `switch_session { claimLease: true }` takes the session's ownership lease on open and fails with `code: "session_busy"` when another process owns it
 - RPC `get_state` reports `idleMaintenance { recapDueAt?, compactionDueAt? }` while idle recap or compaction is owed and scheduled (absent otherwise), and a `recap { recap, createdAt }` frame carries each idle recap
+- RPC `resume { subagentId?, hostMessageId? }` runs the `.`/`c` continue shortcut on the session or one of its subagents, journaling a `host-resume` custom entry first when `hostMessageId` is given
 
 ### Fixed
 

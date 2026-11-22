@@ -13,7 +13,7 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
+import { AgentBusyError, ThinkingLevel } from "@oh-my-pi/pi-agent-core";
 import type { Model } from "@oh-my-pi/pi-ai";
 import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
 import type { ImageContent } from "@oh-my-pi/pi-ai";
@@ -42,6 +42,7 @@ import {
 } from "../../extensibility/skills";
 import { type Theme, theme } from "@oh-my-pi/pi-tui/theme";
 import { AgentLifecycleManager } from "../../registry/agent-lifecycle";
+import { AgentRegistry } from "../../registry/agent-registry";
 import {
 	type WordCompletionEngine,
 	type WordCompletionMethod,
@@ -50,7 +51,7 @@ import {
 } from "@oh-my-pi/pi-tui/prompt/word-completion";
 import { requestTextPrediction, textPredictionBackend } from "../../predict/client";
 import { type AgentSession, type NavigateTreeResult, SessionBusyError } from "../../session/agent-session";
-import type { AgentSessionHandle } from "../../session/agent-session-handle";
+import { type AgentSessionHandle, isAgentViewSession } from "../../session/agent-session-handle";
 import type { MCPManager } from "../../mcp/manager";
 import { reconnectMcpManagerServer } from "../../mcp/oauth-reauth";
 import type { RestoredQueuedMessage } from "../../session/agent-session-types";
@@ -874,6 +875,54 @@ export async function handleRpcSteerSubagent(
 	} finally {
 		unsubscribe();
 	}
+}
+
+/** The session surface `resume` drives: the main session or a subagent's handle. */
+interface RpcResumable {
+	sessionManager: { appendCustomEntry(customType: string, data?: unknown): unknown };
+	resume(): Promise<void>;
+}
+
+/**
+ * Handle RPC `resume`: `AgentSession.resume()` (the TUI's `.`/`c` shortcut) on this session, or on the
+ * named subagent's session. No user message is journaled. An idle session runs omp's recovery directive; a
+ * streaming one is interrupted and continued. With `hostMessageId`, a `host-resume` custom entry
+ * (`{ hostMessageId, text: "." }`) is journaled in the target's transcript first, so the host can show the
+ * `.` it sent as a user turn; custom entries never reach the model. The entry stays when there is nothing
+ * to resume, and `resume()` then rejects.
+ *
+ * A subagent is reachable while this session's roster knows it or its transcript reference is retained: a
+ * running one, or a finished one that is still registered (idle, or parked and revived from its transcript,
+ * as `task resume` does). Rejects when the id is unknown or is another session's agent.
+ */
+export async function handleRpcResume(
+	session: RpcResumable,
+	subagentRegistry: Pick<RpcSubagentRegistry, "resolveSessionFile"> | undefined,
+	options: { subagentId?: string; hostMessageId?: string },
+): Promise<void> {
+	let target: RpcResumable = session;
+	const { subagentId } = options;
+	if (subagentId !== undefined) {
+		if (!subagentRegistry) throw new Error("Subagent event bus is unavailable");
+		const sessionFile = subagentRegistry.resolveSessionFile({ subagentId });
+		const notResumable = new Error(`Subagent not resumable: ${subagentId}`);
+		// Ids are unique only within one parent's artifacts scope: the ref must carry this roster's transcript.
+		if (AgentRegistry.global().get(subagentId)?.sessionFile !== sessionFile) throw notResumable;
+		let live: AgentSessionHandle;
+		try {
+			live = await AgentLifecycleManager.global().ensureLive(subagentId);
+		} catch {
+			throw notResumable;
+		}
+		if (AgentRegistry.global().get(subagentId)?.sessionFile !== sessionFile || !isAgentViewSession(live)) {
+			throw notResumable;
+		}
+		target = live;
+	}
+	if (options.hostMessageId) {
+		target.sessionManager.appendCustomEntry("host-resume", { hostMessageId: options.hostMessageId, text: "." });
+	}
+	await target.resume();
 }
 
 export async function handleRpcSessionChange(
@@ -2574,6 +2623,25 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				}
 				const failure = await handleRpcSteerSubagent(subagentRegistry, command.subagentId, command.message);
 				return failure ? error(id, "steer_subagent", failure) : success(id, "steer_subagent");
+			}
+
+			case "resume": {
+				if (command.subagentId !== undefined && (typeof command.subagentId !== "string" || !command.subagentId)) {
+					return error(id, "resume", "`subagentId` must be a non-empty string.");
+				}
+				if (
+					command.hostMessageId !== undefined &&
+					(typeof command.hostMessageId !== "string" || !command.hostMessageId)
+				) {
+					return error(id, "resume", "hostMessageId must be a non-empty string");
+				}
+				try {
+					await handleRpcResume(session, subagentRegistry, command);
+					return success(id, "resume");
+				} catch (err) {
+					if (err instanceof AgentBusyError) return error(id, "resume", err.message, "session_busy");
+					return error(id, "resume", err instanceof Error ? err.message : String(err));
+				}
 			}
 
 			// =================================================================

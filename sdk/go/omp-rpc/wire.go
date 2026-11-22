@@ -8268,6 +8268,19 @@ func (c Commands) SteerSubagent(ctx context.Context, p SteerSubagentCommand) err
 	return c.call(ctx, "steer_subagent", p, 0, nil)
 }
 
+// ResumeCommand holds the parameters of "resume".
+type ResumeCommand struct {
+	// A subagent of this session whose session is resumed instead.
+	SubagentID *string `json:"subagentId,omitempty"`
+	// Journal `custom { host-resume, { hostMessageId, text: "." } }` in the target session first.
+	HostMessageID *string `json:"hostMessageId,omitempty"`
+}
+
+// Resume sends "resume": Continue an interrupted turn (the TUI `.`/`c` shortcut) on this session, or on the subagent `subagentId`. No user message is journaled; with `hostMessageId` a `host-resume` custom entry is journaled first.
+func (c Commands) Resume(ctx context.Context, p ResumeCommand) error {
+	return c.call(ctx, "resume", p, 0, nil)
+}
+
 // LiveStartCommand holds the parameters of "live_start".
 type LiveStartCommand struct {
 	Voice        *string `json:"voice,omitempty"`

@@ -165,6 +165,9 @@ Important edge behavior from runtime:
 - `{ id?, type: "get_subagent_messages", subagentId?: string, sessionFile?: string, fromByte?: number }`
 - `{ id?, type: "cancel_subagent", subagentId: string }`
 - `{ id?, type: "steer_subagent", subagentId: string, message: string }`
+- `{ id?, type: "resume", subagentId?: string, hostMessageId?: string }`
+
+`resume` is the TUI's `.`/`c` continue shortcut: `AgentSession.resume()` on this session, or on the subagent named by `subagentId`. No user message is journaled: an idle session runs omp's recovery directive, a streaming one is interrupted and continued. With `hostMessageId`, a `custom` entry `{ customType: "host-resume", data: { hostMessageId, text: "." } }` is journaled in the target session first (the model never sees it, and it stays when nothing could be resumed). It fails with `Nothing to resume` when the session has no conversation to continue, with `code: "session_busy"` when another turn claims the session in between, and with `Subagent not resumable` or `Unknown subagent…` for an id this session did not spawn; a finished subagent that is still registered is revived from its transcript, as `task resume` does. The response arrives once the continuation is scheduled, not when it ends.
 
 ### Model
 

@@ -5512,6 +5512,16 @@ pub struct SteerSubagentParams {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ResumeParams {
+	/// A subagent of this session whose session is resumed instead.
+	#[serde(rename = "subagentId", default, skip_serializing_if = "Option::is_none")]
+	pub subagent_id: Option<String>,
+	/// Journal `custom { host-resume, { hostMessageId, text: "." } }` in the target session first.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LiveStartParams {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub voice: Option<String>,
@@ -6771,6 +6781,28 @@ pub struct SteerSubagentCommand {
 
 impl Command for SteerSubagentCommand {
 	const NAME: &'static str = "steer_subagent";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = ();
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		let _ = data;
+		Ok(())
+	}
+}
+
+/// Continue an interrupted turn (the TUI `.`/`c` shortcut) on this session, or on the subagent `subagentId`. No user message is journaled; with `hostMessageId` a `host-resume` custom entry is journaled first.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct ResumeCommand {
+	/// A subagent of this session whose session is resumed instead.
+	#[serde(rename = "subagentId", default, skip_serializing_if = "Option::is_none")]
+	pub subagent_id: Option<String>,
+	/// Journal `custom { host-resume, { hostMessageId, text: "." } }` in the target session first.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
+}
+
+impl Command for ResumeCommand {
+	const NAME: &'static str = "resume";
 	const TIMEOUT_MS: Option<u64> = None;
 	type Output = ();
 

@@ -3620,6 +3620,15 @@ class WireClient:
         params["message"] = message
         self._command("steer_subagent", params)
 
+    def resume(self, *, subagent_id: str | None = None, host_message_id: str | None = None) -> None:
+        """Continue an interrupted turn (the TUI `.`/`c` shortcut) on this session, or on the subagent `subagentId`. No user message is journaled; with `hostMessageId` a `host-resume` custom entry is journaled first."""
+        params: dict[str, object] = {}
+        if subagent_id is not None:
+            params["subagentId"] = subagent_id
+        if host_message_id is not None:
+            params["hostMessageId"] = host_message_id
+        self._command("resume", params)
+
     def live_start(self, *, voice: str | None = None, instructions: str | None = None) -> str:
         """Start a live voice session bound to this session; returns the voice in use."""
         params: dict[str, object] = {}

@@ -1028,6 +1028,21 @@ export class RpcClient {
 	}
 
 	/**
+	 * Continue an interrupted turn, like the TUI's `.`/`c` shortcut: an idle session runs omp's recovery
+	 * directive, a streaming one is interrupted and continued. No user message is journaled. `subagentId`
+	 * targets a subagent's session; `hostMessageId` journals a `host-resume` custom entry first.
+	 */
+	async resume(options?: { subagentId?: string; hostMessageId?: string }): Promise<void> {
+		this.#getData(
+			await this.#send({
+				type: "resume",
+				subagentId: options?.subagentId,
+				hostMessageId: options?.hostMessageId,
+			}),
+		);
+	}
+
+	/**
 	 * Set model by provider and ID.
 	 */
 	async setModel(provider: string, modelId: string): Promise<{ provider: string; id: string }> {

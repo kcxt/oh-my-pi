@@ -1754,6 +1754,13 @@ export interface SteerSubagentParams {
 	message: string;
 }
 
+export interface ResumeParams {
+	/** A subagent of this session whose session is resumed instead. */
+	subagentId?: string;
+	/** Journal `custom { host-resume, { hostMessageId, text: "." } }` in the target session first. */
+	hostMessageId?: string;
+}
+
 export interface LiveStartParams {
 	voice?: string;
 	instructions?: string;
@@ -2020,6 +2027,7 @@ export interface RpcWireCommands {
 	get_subagent_messages: { params: GetSubagentMessagesParams; result: SubagentMessages };
 	cancel_subagent: { params: CancelSubagentParams; result: CancelSubagentResult };
 	steer_subagent: { params: SteerSubagentParams; result: undefined };
+	resume: { params: ResumeParams; result: undefined };
 	live_start: { params: LiveStartParams; result: LiveStartResult };
 	live_connect: { params: LiveConnectParams; result: LiveConnectResult };
 	live_stop: { params: undefined; result: undefined };

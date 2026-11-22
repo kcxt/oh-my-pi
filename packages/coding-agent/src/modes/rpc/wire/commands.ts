@@ -202,6 +202,17 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 		params: { subagentId: "string", message: "string" },
 	},
 	{
+		name: "resume",
+		doc: "Continue an interrupted turn (the TUI `.`/`c` shortcut) on this session, or on the subagent `subagentId`. No user message is journaled; with `hostMessageId` a `host-resume` custom entry is journaled first.",
+		params: {
+			"subagentId?": doc("string", "A subagent of this session whose session is resumed instead."),
+			"hostMessageId?": doc(
+				"string",
+				'Journal `custom { host-resume, { hostMessageId, text: "." } }` in the target session first.',
+			),
+		},
+	},
+	{
 		name: "live_start",
 		doc: "Start a live voice session bound to this session; returns the voice in use.",
 		params: { "voice?": "string", "instructions?": "string" },
