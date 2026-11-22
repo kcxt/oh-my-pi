@@ -2953,6 +2953,43 @@ pub struct ContextUsage {
 	pub percent: f64,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextBreakdownModel {
+	pub provider: String,
+	#[serde(rename = "modelId")]
+	pub model_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextBreakdownCategory {
+	/// `systemPrompt`, `systemContext`, `systemTools`, `instructionFiles`, `skills` or `messages`.
+	pub id: String,
+	pub label: String,
+	pub tokens: i64,
+}
+
+/// The `/context` category breakdown, without per-item entries or transcript text.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextBreakdownView {
+	#[serde(rename = "contextWindow")]
+	pub context_window: i64,
+	pub categories: Vec<ContextBreakdownCategory>,
+	#[serde(rename = "usedTokens")]
+	pub used_tokens: i64,
+	#[serde(rename = "autoCompactBufferTokens")]
+	pub auto_compact_buffer_tokens: i64,
+	#[serde(rename = "freeTokens")]
+	pub free_tokens: i64,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub model: Option<ContextBreakdownModel>,
+	/// Where auto-compaction fires; absent when compaction is off.
+	#[serde(rename = "thresholdTokens", default, skip_serializing_if = "Option::is_none")]
+	pub threshold_tokens: Option<i64>,
+	/// Estimated wire tokens snapcompact saves; absent when no `snapcompact.*` setting is enabled.
+	#[serde(rename = "snapcompactSavedTokens", default, skip_serializing_if = "Option::is_none")]
+	pub snapcompact_saved_tokens: Option<i64>,
+}
+
 /// Displayable queue-chip text for pending user-authored messages; accepted verbatim by `remove_queued_message`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct QueuedMessagesState {
@@ -7047,6 +7084,20 @@ impl Command for GetSessionStatsCommand {
 
 	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
 		serde_json::from_value::<SessionStats>(data.unwrap_or_else(|| Value::Object(Map::new())))
+	}
+}
+
+/// The `/context` category breakdown of the current session. Fails when no model is selected or its context window is unknown.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct GetContextBreakdownCommand {}
+
+impl Command for GetContextBreakdownCommand {
+	const NAME: &'static str = "get_context_breakdown";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = ContextBreakdownView;
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		serde_json::from_value::<ContextBreakdownView>(data.unwrap_or_else(|| Value::Object(Map::new())))
 	}
 }
 

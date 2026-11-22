@@ -60,3 +60,31 @@ export function computeSessionContextBreakdown(
 		snapcompact,
 	});
 }
+
+/** `get_context_breakdown` result: the `/context` categories, without per-item entries or transcript text. */
+export interface ContextBreakdownView {
+	model?: { provider: string; modelId: string };
+	contextWindow: number;
+	categories: { id: string; label: string; tokens: number }[];
+	usedTokens: number;
+	autoCompactBufferTokens: number;
+	freeTokens: number;
+	/** Where auto-compaction fires; absent when compaction is off. */
+	thresholdTokens?: number;
+	/** Estimated wire tokens snapcompact saves; absent when no `snapcompact.*` setting is enabled. */
+	snapcompactSavedTokens?: number;
+}
+
+/** The wire projection of a breakdown for `get_context_breakdown`: numbers only, no model object or snapcompact detail. */
+export function toContextBreakdownView(breakdown: ContextBreakdown): ContextBreakdownView {
+	return {
+		...(breakdown.model ? { model: { provider: breakdown.model.provider, modelId: breakdown.model.id } } : {}),
+		contextWindow: breakdown.contextWindow,
+		categories: breakdown.categories.map(({ id, label, tokens }) => ({ id, label, tokens })),
+		usedTokens: breakdown.usedTokens,
+		autoCompactBufferTokens: breakdown.autoCompactBufferTokens,
+		freeTokens: breakdown.freeTokens,
+		...(breakdown.thresholdTokens !== undefined ? { thresholdTokens: breakdown.thresholdTokens } : {}),
+		...(breakdown.snapcompact ? { snapcompactSavedTokens: breakdown.snapcompact.savedTokens } : {}),
+	};
+}

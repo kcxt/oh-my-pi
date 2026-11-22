@@ -28,6 +28,7 @@ import {
 import type {
 	RpcAbortAndRestoreQueueResult,
 	RpcAvailableCommandsUpdateFrame,
+	ContextBreakdownView,
 	RpcBtwDeltaFrame,
 	RpcBtwHistoryRecord,
 	RpcBtwRecordFrame,
@@ -1151,6 +1152,15 @@ export class RpcClient {
 	 */
 	async getSessionStats(): Promise<SessionStats> {
 		const response = await this.#send({ type: "get_session_stats" });
+		return this.#getData(response);
+	}
+
+	/**
+	 * The `/context` category breakdown: tokens per system prompt, tools, instruction
+	 * files, skills and messages, plus window, free space and compaction threshold.
+	 */
+	async getContextBreakdown(): Promise<ContextBreakdownView> {
+		const response = await this.#send({ type: "get_context_breakdown" });
 		return this.#getData(response);
 	}
 

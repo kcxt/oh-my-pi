@@ -573,6 +573,17 @@
 				"clientOmit": []
 			},
 			{
+				"name": "get_context_breakdown",
+				"doc": "The `/context` category breakdown of the current session. Fails when no model is selected or its context window is unknown.",
+				"params": null,
+				"result": "ContextBreakdownView",
+				"nullable": false,
+				"unwrap": null,
+				"timeoutMs": null,
+				"completion": null,
+				"clientOmit": []
+			},
+			{
 				"name": "get_session_lease",
 				"doc": "Which of these sessions a running process (this one included) owns, probed without taking ownership. Ids in neither list are free; `unknown` could not be probed.",
 				"params": "GetSessionLeaseParams",
@@ -2418,6 +2429,83 @@
 				"contextWindow",
 				"percent"
 			]
+		},
+		"ContextBreakdownModel": {
+			"type": "object",
+			"properties": {
+				"provider": {
+					"type": "string"
+				},
+				"modelId": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"provider",
+				"modelId"
+			]
+		},
+		"ContextBreakdownCategory": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`systemPrompt`, `systemContext`, `systemTools`, `instructionFiles`, `skills` or `messages`."
+				},
+				"label": {
+					"type": "string"
+				},
+				"tokens": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"id",
+				"label",
+				"tokens"
+			]
+		},
+		"ContextBreakdownView": {
+			"type": "object",
+			"properties": {
+				"contextWindow": {
+					"type": "integer"
+				},
+				"categories": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/ContextBreakdownCategory"
+					}
+				},
+				"usedTokens": {
+					"type": "integer"
+				},
+				"autoCompactBufferTokens": {
+					"type": "integer"
+				},
+				"freeTokens": {
+					"type": "integer"
+				},
+				"model": {
+					"$ref": "#/$defs/ContextBreakdownModel"
+				},
+				"thresholdTokens": {
+					"type": "integer",
+					"description": "Where auto-compaction fires; absent when compaction is off."
+				},
+				"snapcompactSavedTokens": {
+					"type": "integer",
+					"description": "Estimated wire tokens snapcompact saves; absent when no `snapcompact.*` setting is enabled."
+				}
+			},
+			"required": [
+				"contextWindow",
+				"categories",
+				"usedTokens",
+				"autoCompactBufferTokens",
+				"freeTokens"
+			],
+			"description": "The `/context` category breakdown, without per-item entries or transcript text."
 		},
 		"QueuedMessagesState": {
 			"type": "object",

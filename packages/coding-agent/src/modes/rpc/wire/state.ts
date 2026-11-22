@@ -38,6 +38,28 @@ export const stateDefs = {
 	},
 	TodoPhase: { name: "string", tasks: "TodoItem[]" },
 	ContextUsage: { tokens: "number.integer", contextWindow: "number.integer", percent: "number" },
+	ContextBreakdownModel: { provider: "string", modelId: "string" },
+	ContextBreakdownCategory: {
+		id: doc("string", "`systemPrompt`, `systemContext`, `systemTools`, `instructionFiles`, `skills` or `messages`."),
+		label: "string",
+		tokens: "number.integer",
+	},
+	ContextBreakdownView: doc(
+		{
+			"model?": "ContextBreakdownModel",
+			contextWindow: "number.integer",
+			categories: "ContextBreakdownCategory[]",
+			usedTokens: "number.integer",
+			autoCompactBufferTokens: "number.integer",
+			freeTokens: "number.integer",
+			"thresholdTokens?": doc("number.integer", "Where auto-compaction fires; absent when compaction is off."),
+			"snapcompactSavedTokens?": doc(
+				"number.integer",
+				"Estimated wire tokens snapcompact saves; absent when no `snapcompact.*` setting is enabled.",
+			),
+		},
+		"The `/context` category breakdown, without per-item entries or transcript text.",
+	),
 	QueuedMessagesState: doc(
 		{
 			steering: "string[]",

@@ -2235,6 +2235,87 @@ func (v *ContextUsage) decodeFrom(raw map[string]json.RawMessage) error {
 	return nil
 }
 
+type ContextBreakdownModel struct {
+	Provider string `json:"provider"`
+	ModelID  string `json:"modelId"`
+}
+
+func (v *ContextBreakdownModel) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "ContextBreakdownModel", v.decodeFrom)
+}
+
+func (v *ContextBreakdownModel) decodeFrom(raw map[string]json.RawMessage) error {
+	var out ContextBreakdownModel
+	d := fieldDecoder{raw: raw, owner: "ContextBreakdownModel"}
+	d.required("provider", &out.Provider)
+	d.required("modelId", &out.ModelID)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+type ContextBreakdownCategory struct {
+	// `systemPrompt`, `systemContext`, `systemTools`, `instructionFiles`, `skills` or `messages`.
+	ID     string `json:"id"`
+	Label  string `json:"label"`
+	Tokens int64  `json:"tokens"`
+}
+
+func (v *ContextBreakdownCategory) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "ContextBreakdownCategory", v.decodeFrom)
+}
+
+func (v *ContextBreakdownCategory) decodeFrom(raw map[string]json.RawMessage) error {
+	var out ContextBreakdownCategory
+	d := fieldDecoder{raw: raw, owner: "ContextBreakdownCategory"}
+	d.required("id", &out.ID)
+	d.required("label", &out.Label)
+	d.required("tokens", &out.Tokens)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+// The `/context` category breakdown, without per-item entries or transcript text.
+type ContextBreakdownView struct {
+	ContextWindow           int64                      `json:"contextWindow"`
+	Categories              []ContextBreakdownCategory `json:"categories"`
+	UsedTokens              int64                      `json:"usedTokens"`
+	AutoCompactBufferTokens int64                      `json:"autoCompactBufferTokens"`
+	FreeTokens              int64                      `json:"freeTokens"`
+	Model                   *ContextBreakdownModel     `json:"model,omitempty"`
+	// Where auto-compaction fires; absent when compaction is off.
+	ThresholdTokens *int64 `json:"thresholdTokens,omitempty"`
+	// Estimated wire tokens snapcompact saves; absent when no `snapcompact.*` setting is enabled.
+	SnapcompactSavedTokens *int64 `json:"snapcompactSavedTokens,omitempty"`
+}
+
+func (v *ContextBreakdownView) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "ContextBreakdownView", v.decodeFrom)
+}
+
+func (v *ContextBreakdownView) decodeFrom(raw map[string]json.RawMessage) error {
+	var out ContextBreakdownView
+	d := fieldDecoder{raw: raw, owner: "ContextBreakdownView"}
+	d.required("contextWindow", &out.ContextWindow)
+	d.required("categories", &out.Categories)
+	d.required("usedTokens", &out.UsedTokens)
+	d.required("autoCompactBufferTokens", &out.AutoCompactBufferTokens)
+	d.required("freeTokens", &out.FreeTokens)
+	d.optional("model", &out.Model)
+	d.optional("thresholdTokens", &out.ThresholdTokens)
+	d.optional("snapcompactSavedTokens", &out.SnapcompactSavedTokens)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
 // Displayable queue-chip text for pending user-authored messages; accepted verbatim by `remove_queued_message`.
 type QueuedMessagesState struct {
 	Steering []string `json:"steering"`
@@ -8309,6 +8390,13 @@ func (c Commands) AbortBash(ctx context.Context) error {
 func (c Commands) GetSessionStats(ctx context.Context) (SessionStats, error) {
 	var out SessionStats
 	err := c.call(ctx, "get_session_stats", nil, 0, &out)
+	return out, err
+}
+
+// GetContextBreakdown sends "get_context_breakdown": The `/context` category breakdown of the current session. Fails when no model is selected or its context window is unknown.
+func (c Commands) GetContextBreakdown(ctx context.Context) (ContextBreakdownView, error) {
+	var out ContextBreakdownView
+	err := c.call(ctx, "get_context_breakdown", nil, 0, &out)
 	return out, err
 }
 

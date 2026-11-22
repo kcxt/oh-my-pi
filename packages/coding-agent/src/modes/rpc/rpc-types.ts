@@ -34,6 +34,7 @@ import type { RpcMessagesPage } from "./rpc-messages";
 import type { GoalModeState } from "../../goals/state";
 import type { RpcGoalOp, RpcGoalResult } from "./rpc-goal";
 import type { BtwHistoryRecord } from "../../session/btw-history";
+import type { ContextBreakdownView } from "../../session/context-usage-runtime";
 
 // ============================================================================
 // RPC Commands (stdin)
@@ -44,6 +45,8 @@ import type { BtwHistoryRecord } from "../../session/btw-history";
  * with the block a start event opens or an end event closes (see {@link RpcDeltaAssistantMessageEvent}).
  */
 export type RpcMessageUpdates = "full" | "delta";
+
+export type { ContextBreakdownView };
 
 export type RpcCommand =
 	// Protocol
@@ -127,6 +130,7 @@ export type RpcCommand =
 
 	// Session
 	| { id?: string; type: "get_session_stats" }
+	| { id?: string; type: "get_context_breakdown" }
 	| { id?: string; type: "get_session_lease"; sessionIds: string[] }
 	| { id?: string; type: "export_html"; outputPath?: string }
 	| { id?: string; type: "switch_session"; sessionPath: string; provider?: string; modelId?: string }
@@ -597,6 +601,7 @@ export type RpcResponse =
 	// Session
 	| { id?: string; type: "response"; command: "get_session_stats"; success: true; data: SessionStats }
 	| { id?: string; type: "response"; command: "get_session_lease"; success: true; data: SessionLeaseReport }
+	| { id?: string; type: "response"; command: "get_context_breakdown"; success: true; data: ContextBreakdownView }
 	| { id?: string; type: "response"; command: "export_html"; success: true; data: { path: string } }
 	| { id?: string; type: "response"; command: "switch_session"; success: true; data: { cancelled: boolean } }
 	| { id?: string; type: "response"; command: "branch"; success: true; data: { text: string; cancelled: boolean } }

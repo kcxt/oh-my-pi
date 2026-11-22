@@ -575,6 +575,35 @@ class ContextUsage:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class ContextBreakdownModel:
+    provider: str
+    model_id: str
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ContextBreakdownCategory:
+    id: str
+    """`systemPrompt`, `systemContext`, `systemTools`, `instructionFiles`, `skills` or `messages`."""
+    label: str
+    tokens: int
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ContextBreakdownView:
+    """The `/context` category breakdown, without per-item entries or transcript text."""
+    context_window: int
+    categories: tuple[ContextBreakdownCategory, ...]
+    used_tokens: int
+    auto_compact_buffer_tokens: int
+    free_tokens: int
+    model: ContextBreakdownModel | None = None
+    threshold_tokens: int | None = None
+    """Where auto-compaction fires; absent when compaction is off."""
+    snapcompact_saved_tokens: int | None = None
+    """Estimated wire tokens snapcompact saves; absent when no `snapcompact.*` setting is enabled."""
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class QueuedMessagesState:
     """Displayable queue-chip text for pending user-authored messages; accepted verbatim by `remove_queued_message`."""
     steering: tuple[str, ...]
@@ -1970,6 +1999,37 @@ def parse_context_usage(value: object, path: str = "ContextUsage") -> ContextUsa
         tokens=required(payload, "tokens", decode_int, path),
         context_window=required(payload, "contextWindow", decode_int, path),
         percent=required(payload, "percent", decode_float, path),
+    )
+
+
+def parse_context_breakdown_model(value: object, path: str = "ContextBreakdownModel") -> ContextBreakdownModel:
+    payload = expect_object(value, path)
+    return ContextBreakdownModel(
+        provider=required(payload, "provider", decode_str, path),
+        model_id=required(payload, "modelId", decode_str, path),
+    )
+
+
+def parse_context_breakdown_category(value: object, path: str = "ContextBreakdownCategory") -> ContextBreakdownCategory:
+    payload = expect_object(value, path)
+    return ContextBreakdownCategory(
+        id=required(payload, "id", decode_str, path),
+        label=required(payload, "label", decode_str, path),
+        tokens=required(payload, "tokens", decode_int, path),
+    )
+
+
+def parse_context_breakdown_view(value: object, path: str = "ContextBreakdownView") -> ContextBreakdownView:
+    payload = expect_object(value, path)
+    return ContextBreakdownView(
+        context_window=required(payload, "contextWindow", decode_int, path),
+        categories=required(payload, "categories", array(parse_context_breakdown_category), path),
+        used_tokens=required(payload, "usedTokens", decode_int, path),
+        auto_compact_buffer_tokens=required(payload, "autoCompactBufferTokens", decode_int, path),
+        free_tokens=required(payload, "freeTokens", decode_int, path),
+        model=optional(payload, "model", parse_context_breakdown_model, path),
+        threshold_tokens=optional(payload, "thresholdTokens", decode_int, path),
+        snapcompact_saved_tokens=optional(payload, "snapcompactSavedTokens", decode_int, path),
     )
 
 
@@ -3647,6 +3707,11 @@ class WireClient:
         params: dict[str, object] = {}
         return parse_session_stats(self._command("get_session_stats", params), "get_session_stats")
 
+    def get_context_breakdown(self) -> ContextBreakdownView:
+        """The `/context` category breakdown of the current session. Fails when no model is selected or its context window is unknown."""
+        params: dict[str, object] = {}
+        return parse_context_breakdown_view(self._command("get_context_breakdown", params), "get_context_breakdown")
+
     def get_session_lease(self, session_ids: Sequence[str]) -> GetSessionLeaseResult:
         """Which of these sessions a running process (this one included) owns, probed without taking ownership. Ids in neither list are free; `unknown` could not be probed."""
         params: dict[str, object] = {}
@@ -4082,6 +4147,9 @@ __all__ = [
     "ConfigWarningsChangedEvent",
     "ConfiguredThinkingLevel",
     "ConfirmUiRequest",
+    "ContextBreakdownCategory",
+    "ContextBreakdownModel",
+    "ContextBreakdownView",
     "ContextUsage",
     "CustomMessage",
     "DeveloperMessage",
@@ -4275,6 +4343,9 @@ __all__ = [
     "parse_config_update_event",
     "parse_config_warnings_changed_event",
     "parse_confirm_ui_request",
+    "parse_context_breakdown_category",
+    "parse_context_breakdown_model",
+    "parse_context_breakdown_view",
     "parse_context_usage",
     "parse_custom_message",
     "parse_developer_message",

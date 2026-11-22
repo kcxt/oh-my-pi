@@ -423,6 +423,32 @@ export interface ContextUsage {
 	percent: number;
 }
 
+export interface ContextBreakdownModel {
+	provider: string;
+	modelId: string;
+}
+
+export interface ContextBreakdownCategory {
+	/** `systemPrompt`, `systemContext`, `systemTools`, `instructionFiles`, `skills` or `messages`. */
+	id: string;
+	label: string;
+	tokens: number;
+}
+
+/** The `/context` category breakdown, without per-item entries or transcript text. */
+export interface ContextBreakdownView {
+	contextWindow: number;
+	categories: ContextBreakdownCategory[];
+	usedTokens: number;
+	autoCompactBufferTokens: number;
+	freeTokens: number;
+	model?: ContextBreakdownModel;
+	/** Where auto-compaction fires; absent when compaction is off. */
+	thresholdTokens?: number;
+	/** Estimated wire tokens snapcompact saves; absent when no `snapcompact.*` setting is enabled. */
+	snapcompactSavedTokens?: number;
+}
+
 /** Displayable queue-chip text for pending user-authored messages; accepted verbatim by `remove_queued_message`. */
 export interface QueuedMessagesState {
 	steering: string[];
@@ -1979,6 +2005,7 @@ export interface RpcWireCommands {
 	bash: { params: BashParams; result: BashResult };
 	abort_bash: { params: undefined; result: undefined };
 	get_session_stats: { params: undefined; result: SessionStats };
+	get_context_breakdown: { params: undefined; result: ContextBreakdownView };
 	get_session_lease: { params: GetSessionLeaseParams; result: GetSessionLeaseResult };
 	export_html: { params: ExportHtmlParams; result: ExportHtmlResult };
 	switch_session: { params: SwitchSessionParams; result: CancellationResult };

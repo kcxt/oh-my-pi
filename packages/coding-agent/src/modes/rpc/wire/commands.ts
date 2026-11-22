@@ -274,6 +274,11 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 
 	{ name: "get_session_stats", doc: "Session statistics.", result: "SessionStats" },
 	{
+		name: "get_context_breakdown",
+		doc: "The `/context` category breakdown of the current session. Fails when no model is selected or its context window is unknown.",
+		result: "ContextBreakdownView",
+	},
+	{
 		name: "get_session_lease",
 		doc: "Which of these sessions a running process (this one included) owns, probed without taking ownership. Ids in neither list are free; `unknown` could not be probed.",
 		params: { sessionIds: "string[]" },
