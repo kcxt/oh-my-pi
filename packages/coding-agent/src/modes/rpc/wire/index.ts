@@ -65,6 +65,7 @@ const notificationDefs = {
 			"ReadyEvent",
 			"PromptResultEvent",
 			"SessionSettledEvent",
+			"RecapEvent",
 			"ExtensionError",
 			"ExtensionUiRequest",
 			"AvailableCommandsUpdateEvent",

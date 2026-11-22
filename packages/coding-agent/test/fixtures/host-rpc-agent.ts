@@ -34,10 +34,16 @@ const agent = new Agent({
 	initialState: { model: getBundledModel("anthropic", "claude-sonnet-4-5")!, systemPrompt: ["Test"], tools: [] },
 	streamFn: mock.stream,
 });
+const recapSeconds = Number(process.env.HOST_RPC_RECAP_SECONDS) || undefined;
 const session = new AgentSession({
 	agent,
 	sessionManager: SessionManager.create(cwd, path.join(cwd, "sessions")),
-	settings: Settings.isolated({ "compaction.enabled": false, "compaction.keepRecentTokens": 1 }),
+	// Idle recap is off unless the test asks for it (HOST_RPC_RECAP_SECONDS), so a settled turn owes nothing.
+	settings: Settings.isolated({
+		"compaction.enabled": false,
+		"compaction.keepRecentTokens": 1,
+		...(recapSeconds ? { "recap.enabled": true, "recap.idleSeconds": recapSeconds } : { "recap.enabled": false }),
+	}),
 	modelRegistry,
 	sideStreamFn: mock.stream,
 });

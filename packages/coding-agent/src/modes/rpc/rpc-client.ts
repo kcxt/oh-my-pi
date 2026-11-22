@@ -50,6 +50,7 @@ import type {
 	RpcRemoveQueuedMessageResult,
 	RpcResponse,
 	RpcSessionSettledFrame,
+	RpcRecapFrame,
 	RpcSessionState,
 	RpcSubagentEventFrame,
 	RpcSubagentLifecycleFrame,
@@ -119,6 +120,7 @@ export type RpcSubagentEventListener = (payload: RpcSubagentEventFrame["payload"
 export type RpcAvailableCommandsUpdateListener = (commands: RpcAvailableSlashCommand[]) => void;
 export type RpcPromptResultListener = (result: RpcPromptResultFrame) => void;
 export type RpcSessionSettledListener = () => void;
+export type RpcRecapListener = (frame: RpcRecapFrame) => void;
 export type RpcLiveListener = (frame: RpcLiveFrame) => void;
 export type RpcDictationListener = (frame: RpcDictationFrame) => void;
 
@@ -241,6 +243,10 @@ function isRpcPromptResultFrame(value: unknown): value is RpcPromptResultFrame {
 	return value.type === "prompt_result" && typeof value.agentInvoked === "boolean";
 }
 
+function isRpcRecapFrame(value: unknown): value is RpcRecapFrame {
+	return isRecord(value) && value.type === "recap" && typeof value.recap === "string";
+}
+
 function isRpcSessionSettledFrame(value: unknown): value is RpcSessionSettledFrame {
 	return isRecord(value) && value.type === "session_settled";
 }
@@ -351,6 +357,7 @@ export class RpcClient {
 	#btwRecordListeners = new Set<(record: RpcBtwHistoryRecord) => void>();
 	#promptResultListeners = new Set<RpcPromptResultListener>();
 	#sessionSettledListeners = new Set<RpcSessionSettledListener>();
+	#recapListeners = new Set<RpcRecapListener>();
 	#liveListeners = new Set<RpcLiveListener>();
 	#dictationListeners = new Set<RpcDictationListener>();
 	/** `promptAndWait` completions keyed by request id; registered before the prompt is sent. */
@@ -695,6 +702,14 @@ export class RpcClient {
 		this.#sessionSettledListeners.add(listener);
 		return () => {
 			this.#sessionSettledListeners.delete(listener);
+		};
+	}
+
+	/** Subscribe to `recap` frames: the idle recap the session produced after a quiet stretch. */
+	onRecap(listener: RpcRecapListener): () => void {
+		this.#recapListeners.add(listener);
+		return () => {
+			this.#recapListeners.delete(listener);
 		};
 	}
 
@@ -1660,6 +1675,13 @@ export class RpcClient {
 
 		if (isRpcDictationFrame(data)) {
 			for (const listener of this.#dictationListeners) {
+				listener(data);
+			}
+			return;
+		}
+
+		if (isRpcRecapFrame(data)) {
+			for (const listener of this.#recapListeners) {
 				listener(data);
 			}
 			return;

@@ -396,7 +396,7 @@ import {
 	TOOL_EXECUTION_START_CUSTOM_TYPE,
 	type ToolExecutionStartData,
 } from "./exit-diagnostics";
-import { IdleMaintenance, type IdleMaintenanceOptions } from "./idle-maintenance";
+import { IdleMaintenance, type IdleMaintenanceDue, type IdleMaintenanceOptions } from "./idle-maintenance";
 import { IrcBridge, type IrcBridgeHost } from "./irc-bridge";
 import {
 	buildLaunchCompletionBatchMessage,
@@ -3177,6 +3177,11 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 	 */
 	refreshIdleMaintenance(): void {
 		this.#idleMaintenance?.refresh();
+	}
+
+	/** Idle recap and idle compaction this session owes and has scheduled (epoch ms); empty when none, or when not enabled. */
+	getIdleMaintenanceDue(): IdleMaintenanceDue {
+		return this.#idleMaintenance?.due ?? {};
 	}
 
 	/**

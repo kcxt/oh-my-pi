@@ -672,6 +672,14 @@ class UsageLimitWrapUp:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class IdleMaintenanceState:
+    recap_due_at: float | None = None
+    """Epoch ms the idle recap is due (or started)."""
+    compaction_due_at: float | None = None
+    """Epoch ms idle compaction is due."""
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class SessionState:
     session_id: str
     model: ModelInfo | None = None
@@ -707,6 +715,8 @@ class SessionState:
     """System prompt sections, for session dumps."""
     dump_tools: tuple[ToolDescriptor, ...] = ()
     context_usage: ContextUsage | None = None
+    idle_maintenance: IdleMaintenanceState | None = None
+    """Idle recap / compaction owed and scheduled; absent when nothing is owed. Do not release the session while present."""
     goal: GoalModeState | None = None
     """Current goal mode; null when the session has no goal."""
 
@@ -1337,6 +1347,15 @@ class SessionSettledEvent:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class RecapEvent:
+    """An idle recap, pushed once the session's recap turn produced one."""
+    type: Literal["recap"] = "recap"
+    recap: str
+    created_at: float
+    """Epoch ms the recap was produced."""
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ExtensionError:
     type: Literal["extension_error"] = "extension_error"
     extension_path: str
@@ -1765,7 +1784,7 @@ RpcAgentEvent: TypeAlias = AgentStartEvent | AgentEndEvent | TurnStartEvent | Tu
 """A session event, discriminated by `type`; `set_event_filter` selects which are sent."""
 
 
-RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
+RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | RecapEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
 """Unsolicited outbound frame (everything except responses and host tool/URI requests), discriminated by `type`."""
 
 
@@ -2109,6 +2128,14 @@ def parse_usage_limit_wrap_up(value: object, path: str = "UsageLimitWrapUp") -> 
     )
 
 
+def parse_idle_maintenance_state(value: object, path: str = "IdleMaintenanceState") -> IdleMaintenanceState:
+    payload = expect_object(value, path)
+    return IdleMaintenanceState(
+        recap_due_at=optional(payload, "recapDueAt", decode_float, path),
+        compaction_due_at=optional(payload, "compactionDueAt", decode_float, path),
+    )
+
+
 def parse_session_state(value: object, path: str = "SessionState") -> SessionState:
     payload = expect_object(value, path)
     return SessionState(
@@ -2139,6 +2166,7 @@ def parse_session_state(value: object, path: str = "SessionState") -> SessionSta
         system_prompt=defaulted(payload, "systemPrompt", scalar_or_array(decode_str), path, ()),
         dump_tools=defaulted(payload, "dumpTools", array(parse_tool_descriptor), path, ()),
         context_usage=optional(payload, "contextUsage", parse_context_usage, path),
+        idle_maintenance=optional(payload, "idleMaintenance", parse_idle_maintenance_state, path),
         goal=defaulted(payload, "goal", nullable(parse_goal_mode_state), path, None),
     )
 
@@ -2840,6 +2868,15 @@ def parse_session_settled_event(value: object, path: str = "SessionSettledEvent"
     )
 
 
+def parse_recap_event(value: object, path: str = "RecapEvent") -> RecapEvent:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["recap"]]', literal(frozenset({"recap"}))), path)
+    return RecapEvent(
+        recap=required(payload, "recap", decode_str, path),
+        created_at=required(payload, "createdAt", decode_float, path),
+    )
+
+
 def parse_extension_error(value: object, path: str = "ExtensionError") -> ExtensionError:
     payload = expect_object(value, path)
     required(payload, "type", cast('Decoder[Literal["extension_error"]]', literal(frozenset({"extension_error"}))), path)
@@ -3365,6 +3402,7 @@ _RPC_NOTIFICATION_CASES: Final[dict[str, Decoder[RpcNotification]]] = {
         "ready": parse_ready_event,
         "prompt_result": parse_prompt_result_event,
         "session_settled": parse_session_settled_event,
+        "recap": parse_recap_event,
         "extension_error": parse_extension_error,
         "extension_ui_request": parse_extension_ui_request,
         "available_commands_update": parse_available_commands_update_event,
@@ -3904,6 +3942,10 @@ class WireClient:
         """Subscribe to `session_settled`: The session went quiet: the last run yielded and no background work can wake it."""
         return self._listen("session_settled", listener)
 
+    def on_recap(self, listener: Callable[[RecapEvent], None]) -> Callable[[], None]:
+        """Subscribe to `recap`: An idle recap, pushed once the session's recap turn produced one."""
+        return self._listen("recap", listener)
+
     def on_extension_error(self, listener: Callable[[ExtensionError], None]) -> Callable[[], None]:
         """Subscribe to `extension_error` frames."""
         return self._listen("extension_error", listener)
@@ -4205,6 +4247,7 @@ __all__ = [
     "HookMessage",
     "HostToolDefinition",
     "HostUriSchemeDefinition",
+    "IdleMaintenanceState",
     "ImageContent",
     "InputUiRequest",
     "InterruptMode",
@@ -4251,6 +4294,7 @@ __all__ = [
     "QueuedMessageQueue",
     "QueuedMessagesState",
     "ReadyEvent",
+    "RecapEvent",
     "RedactedThinkingContent",
     "RemoveQueuedMessageResult",
     "RestoredQueuedMessage",
@@ -4398,6 +4442,7 @@ __all__ = [
     "parse_hook_message",
     "parse_host_tool_definition",
     "parse_host_uri_scheme_definition",
+    "parse_idle_maintenance_state",
     "parse_image_content",
     "parse_input_ui_request",
     "parse_irc_message_event",
@@ -4436,6 +4481,7 @@ __all__ = [
     "parse_queue_update_event",
     "parse_queued_messages_state",
     "parse_ready_event",
+    "parse_recap_event",
     "parse_redacted_thinking_content",
     "parse_remove_queued_message_result",
     "parse_restored_queued_message",

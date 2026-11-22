@@ -1474,7 +1474,9 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 	// otherwise an interactive-mode owner: without this, a session driven over
 	// RPC journals no recap at all. Idle compaction stays gated by
 	// `compaction.idleEnabled`, and the recap by `recap.enabled`.
-	session.enableIdleMaintenance();
+	session.enableIdleMaintenance({
+		onRecap: recap => output({ type: "recap", recap, createdAt: Date.now() }),
+	});
 
 	const pendingExtensionRequests = new RpcPendingExtensionRequests();
 	const hostToolBridge = new RpcHostToolBridge(output);
@@ -2351,6 +2353,10 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 					contextUsage: session.getContextUsage(),
 					goal: session.getGoalModeState() ?? null,
 				};
+				const idleDue = session.getIdleMaintenanceDue();
+				if (idleDue.recapDueAt !== undefined || idleDue.compactionDueAt !== undefined) {
+					state.idleMaintenance = idleDue;
+				}
 				return success(id, "get_state", state);
 			}
 

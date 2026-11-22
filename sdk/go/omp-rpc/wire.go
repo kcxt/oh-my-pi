@@ -2614,6 +2614,29 @@ func (v *UsageLimitState) decodeFrom(raw map[string]json.RawMessage) error {
 	return nil
 }
 
+type IdleMaintenanceState struct {
+	// Epoch ms the idle recap is due (or started).
+	RecapDueAt *float64 `json:"recapDueAt,omitempty"`
+	// Epoch ms idle compaction is due.
+	CompactionDueAt *float64 `json:"compactionDueAt,omitempty"`
+}
+
+func (v *IdleMaintenanceState) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "IdleMaintenanceState", v.decodeFrom)
+}
+
+func (v *IdleMaintenanceState) decodeFrom(raw map[string]json.RawMessage) error {
+	var out IdleMaintenanceState
+	d := fieldDecoder{raw: raw, owner: "IdleMaintenanceState"}
+	d.optional("recapDueAt", &out.RecapDueAt)
+	d.optional("compactionDueAt", &out.CompactionDueAt)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
 type SessionState struct {
 	SessionID             string         `json:"sessionId"`
 	Model                 *ModelInfo     `json:"model,omitempty"`
@@ -2649,6 +2672,8 @@ type SessionState struct {
 	SystemPrompt []string         `json:"systemPrompt"`
 	DumpTools    []ToolDescriptor `json:"dumpTools"`
 	ContextUsage *ContextUsage    `json:"contextUsage,omitempty"`
+	// Idle recap / compaction owed and scheduled; absent when nothing is owed. Do not release the session while present.
+	IdleMaintenance *IdleMaintenanceState `json:"idleMaintenance,omitempty"`
 	// Current goal mode; null when the session has no goal.
 	Goal *GoalModeState `json:"goal"`
 }
@@ -2688,6 +2713,7 @@ func (v *SessionState) decodeFrom(raw map[string]json.RawMessage) error {
 	d.defaulted("systemPrompt", &out.SystemPrompt, `[]`)
 	d.defaulted("dumpTools", &out.DumpTools, `[]`)
 	d.optional("contextUsage", &out.ContextUsage)
+	d.optional("idleMaintenance", &out.IdleMaintenance)
 	d.defaulted("goal", &out.Goal, `null`)
 	if d.err != nil {
 		return d.err
@@ -4972,6 +4998,35 @@ func (v SessionSettledEvent) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"session_settled"`, nil)
 }
 
+// An idle recap, pushed once the session's recap turn produced one.
+type RecapEvent struct {
+	Recap string `json:"recap"`
+	// Epoch ms the recap was produced.
+	CreatedAt float64 `json:"createdAt"`
+}
+
+func (v *RecapEvent) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "RecapEvent", v.decodeFrom)
+}
+
+func (v *RecapEvent) decodeFrom(raw map[string]json.RawMessage) error {
+	var out RecapEvent
+	d := fieldDecoder{raw: raw, owner: "RecapEvent"}
+	d.constant("type", "recap")
+	d.required("recap", &out.Recap)
+	d.required("createdAt", &out.CreatedAt)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v RecapEvent) MarshalJSON() ([]byte, error) {
+	type plain RecapEvent
+	return encodeObject(plain(v), `"type":"recap"`, nil)
+}
+
 type ExtensionError struct {
 	ExtensionPath string `json:"extensionPath"`
 	Event         string `json:"event"`
@@ -6869,6 +6924,7 @@ type RpcNotificationVariant interface {
 func (ReadyEvent) isRpcNotification()                   {}
 func (PromptResultEvent) isRpcNotification()            {}
 func (SessionSettledEvent) isRpcNotification()          {}
+func (RecapEvent) isRpcNotification()                   {}
 func (ExtensionError) isRpcNotification()               {}
 func (ExtensionUiRequest) isRpcNotification()           {}
 func (AvailableCommandsUpdateEvent) isRpcNotification() {}
@@ -6941,6 +6997,8 @@ func (v *RpcNotification) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[PromptResultEvent](raw)
 	case "session_settled":
 		value, err = decodeVariant[SessionSettledEvent](raw)
+	case "recap":
+		value, err = decodeVariant[RecapEvent](raw)
 	case "extension_error":
 		value, err = decodeVariant[ExtensionError](raw)
 	case "extension_ui_request":
@@ -7074,6 +7132,7 @@ func (HostUriCancelRequest) isRpcServerFrame()         {}
 func (ReadyEvent) isRpcServerFrame()                   {}
 func (PromptResultEvent) isRpcServerFrame()            {}
 func (SessionSettledEvent) isRpcServerFrame()          {}
+func (RecapEvent) isRpcServerFrame()                   {}
 func (ExtensionError) isRpcServerFrame()               {}
 func (ExtensionUiRequest) isRpcServerFrame()           {}
 func (AvailableCommandsUpdateEvent) isRpcServerFrame() {}
@@ -7156,6 +7215,8 @@ func (v *RpcServerFrame) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[PromptResultEvent](raw)
 	case "session_settled":
 		value, err = decodeVariant[SessionSettledEvent](raw)
+	case "recap":
+		value, err = decodeVariant[RecapEvent](raw)
 	case "extension_error":
 		value, err = decodeVariant[ExtensionError](raw)
 	case "extension_ui_request":

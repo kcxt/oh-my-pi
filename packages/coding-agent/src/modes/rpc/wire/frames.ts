@@ -55,6 +55,10 @@ export const frameDefs = {
 		{ type: "'session_settled'" },
 		"The session went quiet: the last run yielded and no background work can wake it.",
 	),
+	RecapEvent: doc(
+		{ type: "'recap'", recap: "string", createdAt: doc("number", "Epoch ms the recap was produced.") },
+		"An idle recap, pushed once the session's recap turn produced one.",
+	),
 	ExtensionError: { type: "'extension_error'", extensionPath: "string", event: "string", error: "string" },
 	AvailableCommandsUpdateEvent: doc(
 		{ type: "'available_commands_update'", commands: "AvailableSlashCommand[]" },

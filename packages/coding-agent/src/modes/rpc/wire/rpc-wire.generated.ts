@@ -516,6 +516,13 @@ export interface UsageLimitWrapUp {
 /** Provider-neutral state of an account past its usage limit, discriminated by `stage`. */
 export type UsageLimitState = UsageLimitLowPriority | UsageLimitWrapUp;
 
+export interface IdleMaintenanceState {
+	/** Epoch ms the idle recap is due (or started). */
+	recapDueAt?: number;
+	/** Epoch ms idle compaction is due. */
+	compactionDueAt?: number;
+}
+
 export interface SessionState {
 	sessionId: string;
 	model?: ModelInfo;
@@ -551,6 +558,8 @@ export interface SessionState {
 	systemPrompt?: string[];
 	dumpTools?: ToolDescriptor[];
 	contextUsage?: ContextUsage;
+	/** Idle recap / compaction owed and scheduled; absent when nothing is owed. Do not release the session while present. */
+	idleMaintenance?: IdleMaintenanceState;
 	/** Current goal mode; null when the session has no goal. */
 	goal?: GoalModeState | null;
 }
@@ -1129,6 +1138,14 @@ export interface SessionSettledEvent {
 	type: "session_settled";
 }
 
+/** An idle recap, pushed once the session's recap turn produced one. */
+export interface RecapEvent {
+	type: "recap";
+	recap: string;
+	/** Epoch ms the recap was produced. */
+	createdAt: number;
+}
+
 export interface ExtensionError {
 	type: "extension_error";
 	extensionPath: string;
@@ -1573,7 +1590,7 @@ export interface HostUriSchemeDefinition {
 }
 
 /** Unsolicited outbound frame (everything except responses and host tool/URI requests), discriminated by `type`. */
-export type RpcNotification = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent;
+export type RpcNotification = ReadyEvent | PromptResultEvent | SessionSettledEvent | RecapEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent;
 
 /** Any frame the server writes to stdout (after reassembling `rpc_chunk` sequences), discriminated by `type`. */
 export type RpcServerFrame = RpcResponse | RpcHostRequest | RpcNotification;

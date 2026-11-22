@@ -2726,6 +2726,19 @@
 			],
 			"description": "Provider-neutral state of an account past its usage limit, discriminated by `stage`."
 		},
+		"IdleMaintenanceState": {
+			"type": "object",
+			"properties": {
+				"recapDueAt": {
+					"type": "number",
+					"description": "Epoch ms the idle recap is due (or started)."
+				},
+				"compactionDueAt": {
+					"type": "number",
+					"description": "Epoch ms idle compaction is due."
+				}
+			}
+		},
 		"SessionState": {
 			"type": "object",
 			"properties": {
@@ -2856,6 +2869,10 @@
 				},
 				"contextUsage": {
 					"$ref": "#/$defs/ContextUsage"
+				},
+				"idleMaintenance": {
+					"$ref": "#/$defs/IdleMaintenanceState",
+					"description": "Idle recap / compaction owed and scheduled; absent when nothing is owed. Do not release the session while present."
 				},
 				"goal": {
 					"anyOf": [
@@ -4740,6 +4757,27 @@
 			],
 			"description": "The session went quiet: the last run yielded and no background work can wake it."
 		},
+		"RecapEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "recap"
+				},
+				"recap": {
+					"type": "string"
+				},
+				"createdAt": {
+					"type": "number",
+					"description": "Epoch ms the recap was produced."
+				}
+			},
+			"required": [
+				"type",
+				"recap",
+				"createdAt"
+			],
+			"description": "An idle recap, pushed once the session's recap turn produced one."
+		},
 		"ExtensionError": {
 			"type": "object",
 			"properties": {
@@ -6163,6 +6201,9 @@
 				},
 				{
 					"$ref": "#/$defs/SessionSettledEvent"
+				},
+				{
+					"$ref": "#/$defs/RecapEvent"
 				},
 				{
 					"$ref": "#/$defs/ExtensionError"

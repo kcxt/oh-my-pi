@@ -123,6 +123,10 @@ export const stateDefs = {
 		"UsageLimitLowPriority | UsageLimitWrapUp",
 		"Provider-neutral state of an account past its usage limit, discriminated by `stage`.",
 	),
+	IdleMaintenanceState: {
+		"recapDueAt?": doc("number", "Epoch ms the idle recap is due (or started)."),
+		"compactionDueAt?": doc("number", "Epoch ms idle compaction is due."),
+	},
 	SessionState: {
 		"model?": "ModelInfo",
 		"thinkingLevel?": "ThinkingLevel",
@@ -163,6 +167,10 @@ export const stateDefs = {
 		systemPrompt: absentAs(doc("string[]", "System prompt sections, for session dumps."), []),
 		dumpTools: absentAs("ToolDescriptor[]", []),
 		"contextUsage?": "ContextUsage",
+		"idleMaintenance?": doc(
+			"IdleMaintenanceState",
+			"Idle recap / compaction owed and scheduled; absent when nothing is owed. Do not release the session while present.",
+		),
 		goal: absentAs(doc("GoalModeState | null", "Current goal mode; null when the session has no goal."), null),
 	},
 

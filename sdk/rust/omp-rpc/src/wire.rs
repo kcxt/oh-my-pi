@@ -3135,6 +3135,16 @@ impl<'de> Deserialize<'de> for UsageLimitState {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IdleMaintenanceState {
+	/// Epoch ms the idle recap is due (or started).
+	#[serde(rename = "recapDueAt", default, skip_serializing_if = "Option::is_none")]
+	pub recap_due_at: Option<f64>,
+	/// Epoch ms idle compaction is due.
+	#[serde(rename = "compactionDueAt", default, skip_serializing_if = "Option::is_none")]
+	pub compaction_due_at: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionState {
 	#[serde(rename = "sessionId")]
 	pub session_id: String,
@@ -3197,6 +3207,9 @@ pub struct SessionState {
 	pub dump_tools: Vec<ToolDescriptor>,
 	#[serde(rename = "contextUsage", default, skip_serializing_if = "Option::is_none")]
 	pub context_usage: Option<ContextUsage>,
+	/// Idle recap / compaction owed and scheduled; absent when nothing is owed. Do not release the session while present.
+	#[serde(rename = "idleMaintenance", default, skip_serializing_if = "Option::is_none")]
+	pub idle_maintenance: Option<IdleMaintenanceState>,
 	/// Current goal mode; null when the session has no goal.
 	#[serde(default = "default_session_state_goal")]
 	pub goal: Option<GoalModeState>,
@@ -4240,6 +4253,15 @@ pub struct PromptResultEvent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionSettledEvent {}
 
+/// An idle recap, pushed once the session's recap turn produced one.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RecapEvent {
+	pub recap: String,
+	/// Epoch ms the recap was produced.
+	#[serde(rename = "createdAt")]
+	pub created_at: f64,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExtensionError {
 	#[serde(rename = "extensionPath")]
@@ -5109,6 +5131,8 @@ pub enum RpcNotification {
 	PromptResult(PromptResultEvent),
 	/// The session went quiet: the last run yielded and no background work can wake it.
 	SessionSettled(SessionSettledEvent),
+	/// An idle recap, pushed once the session's recap turn produced one.
+	Recap(RecapEvent),
 	ExtensionError(ExtensionError),
 	/// Extension UI request, discriminated by `method`.
 	ExtensionUiRequest(ExtensionUiRequest),
@@ -5158,6 +5182,7 @@ impl RpcNotification {
 			Some("ready") => |value| serde_json::from_value(value).map(Self::Ready),
 			Some("prompt_result") => |value| serde_json::from_value(value).map(Self::PromptResult),
 			Some("session_settled") => |value| serde_json::from_value(value).map(Self::SessionSettled),
+			Some("recap") => |value| serde_json::from_value(value).map(Self::Recap),
 			Some("extension_error") => |value| serde_json::from_value(value).map(Self::ExtensionError),
 			Some("extension_ui_request") => |value| serde_json::from_value(value).map(Self::ExtensionUiRequest),
 			Some("available_commands_update") => |value| serde_json::from_value(value).map(Self::AvailableCommandsUpdate),
@@ -5190,6 +5215,7 @@ impl Serialize for RpcNotification {
 			Self::Ready(member) => serialize_tagged(member, &[("type", "ready")], serializer),
 			Self::PromptResult(member) => serialize_tagged(member, &[("type", "prompt_result")], serializer),
 			Self::SessionSettled(member) => serialize_tagged(member, &[("type", "session_settled")], serializer),
+			Self::Recap(member) => serialize_tagged(member, &[("type", "recap")], serializer),
 			Self::ExtensionError(member) => serialize_tagged(member, &[("type", "extension_error")], serializer),
 			Self::ExtensionUiRequest(member) => member.serialize(serializer),
 			Self::AvailableCommandsUpdate(member) => serialize_tagged(member, &[("type", "available_commands_update")], serializer),
@@ -5240,7 +5266,7 @@ impl RpcServerFrame {
 		let decode: fn(Value) -> Result<Self, serde_json::Error> = match value.get("type").and_then(Value::as_str) {
 			Some("response") => |value| serde_json::from_value(value).map(Self::Response),
 			Some("host_tool_call" | "host_tool_cancel" | "host_uri_request" | "host_uri_cancel") => |value| serde_json::from_value(value).map(Self::RpcHostRequest),
-			Some("ready" | "prompt_result" | "session_settled" | "extension_error" | "extension_ui_request" | "available_commands_update" | "subagent_lifecycle" | "subagent_progress" | "subagent_event" | "live_phase" | "live_levels" | "live_transcript" | "live_end" | "dictation_state" | "dictation_transcript" | "dictation_end" | "btw_delta" | "btw_record" | "command_output" | "session_info_update" | "config_update" | "rpc_frame_error" | "agent_start" | "agent_end" | "turn_start" | "turn_end" | "message_start" | "message_update" | "message_end" | "tool_execution_start" | "tool_execution_update" | "tool_stream_update" | "tool_execution_end" | "auto_compaction_start" | "auto_compaction_end" | "manual_compaction_start" | "manual_compaction_end" | "auto_retry_start" | "auto_retry_end" | "cache_warming_start" | "cache_warming_end" | "retry_fallback_applied" | "retry_fallback_succeeded" | "model_changed" | "config_warnings_changed" | "advisor_cost_changed" | "advisor_yielded" | "ttsr_triggered" | "todo_reminder" | "todo_auto_clear" | "irc_message" | "notice" | "thinking_level_changed" | "goal_updated" | "queue_update") => |value| serde_json::from_value(value).map(Self::RpcNotification),
+			Some("ready" | "prompt_result" | "session_settled" | "recap" | "extension_error" | "extension_ui_request" | "available_commands_update" | "subagent_lifecycle" | "subagent_progress" | "subagent_event" | "live_phase" | "live_levels" | "live_transcript" | "live_end" | "dictation_state" | "dictation_transcript" | "dictation_end" | "btw_delta" | "btw_record" | "command_output" | "session_info_update" | "config_update" | "rpc_frame_error" | "agent_start" | "agent_end" | "turn_start" | "turn_end" | "message_start" | "message_update" | "message_end" | "tool_execution_start" | "tool_execution_update" | "tool_stream_update" | "tool_execution_end" | "auto_compaction_start" | "auto_compaction_end" | "manual_compaction_start" | "manual_compaction_end" | "auto_retry_start" | "auto_retry_end" | "cache_warming_start" | "cache_warming_end" | "retry_fallback_applied" | "retry_fallback_succeeded" | "model_changed" | "config_warnings_changed" | "advisor_cost_changed" | "advisor_yielded" | "ttsr_triggered" | "todo_reminder" | "todo_auto_clear" | "irc_message" | "notice" | "thinking_level_changed" | "goal_updated" | "queue_update") => |value| serde_json::from_value(value).map(Self::RpcNotification),
 			_ => |value| Ok(Self::Unknown(value)),
 		};
 		decode(value)

@@ -36,6 +36,12 @@ export interface IdleMaintenanceOptions {
 	onRecap?: (recap: string) => void;
 }
 
+/** Idle work the session owes and has scheduled, as epoch ms; a key is absent when that work is not due. */
+export interface IdleMaintenanceDue {
+	recapDueAt?: number;
+	compactionDueAt?: number;
+}
+
 /** The session surface idle maintenance reads and drives. */
 export type IdleMaintenanceSession = SessionSettleHost &
 	Pick<
@@ -91,6 +97,10 @@ export class IdleMaintenance {
 	#recapRun: AbortController | undefined;
 	#recapTimer: NodeJS.Timeout | undefined;
 	#compactionTimer: NodeJS.Timeout | undefined;
+	/** Epoch ms the armed (or running) recap is due, or undefined while none is owed and scheduled. */
+	#recapDueAt: number | undefined;
+	/** Epoch ms the armed idle compaction is due. */
+	#compactionDueAt: number | undefined;
 	#disposed = false;
 
 	constructor(session: IdleMaintenanceSession, options: IdleMaintenanceOptions) {
@@ -101,6 +111,17 @@ export class IdleMaintenance {
 			cfgRecap.listen(session.settings, () => this.refresh()),
 			cfgIdleCompaction.listen(session.settings, () => this.refresh()),
 		];
+	}
+
+	/**
+	 * What this stretch still owes and has scheduled: a recap armed or running, idle compaction armed. Work that is
+	 * owed but not armed (still settling, blocked, or disabled by settings) has no time and is not listed.
+	 */
+	get due(): IdleMaintenanceDue {
+		return {
+			...(this.#recapDueAt !== undefined ? { recapDueAt: this.#recapDueAt } : {}),
+			...(this.#compactionDueAt !== undefined ? { compactionDueAt: this.#compactionDueAt } : {}),
+		};
 	}
 
 	/**
@@ -151,12 +172,15 @@ export class IdleMaintenance {
 		clearTimeout(this.#recapTimer);
 		clearTimeout(this.#compactionTimer);
 		this.#recapTimer = undefined;
+		if (!this.#recapRun) this.#recapDueAt = undefined;
+		this.#compactionDueAt = undefined;
 		this.#compactionTimer = undefined;
 	}
 
 	#cancelRecap(): void {
 		this.#recapRun?.abort();
 		this.#recapRun = undefined;
+		this.#recapDueAt = undefined;
 	}
 
 	/** Compaction or a session transition is under way, or the owner does not want autonomous work. */
@@ -234,6 +258,7 @@ export class IdleMaintenance {
 		if (!recap.enabled) return;
 		const seconds = Math.max(RECAP_MIN_SECONDS, Math.min(RECAP_MAX_SECONDS, recap.idleSeconds));
 		this.#recapTimer = setTimeout(() => this.#onRecapDue(), seconds * 1000);
+		this.#recapDueAt = Date.now() + seconds * 1000;
 		this.#recapTimer.unref?.();
 	}
 
@@ -247,10 +272,9 @@ export class IdleMaintenance {
 			!this.#promptCachePersistent() &&
 			this.#contextTokens() >= idle.thresholdTokens
 		) {
-			this.#compactionTimer = setTimeout(
-				() => this.#onCompactionDue(),
-				this.#compactionDelayMs(idle.timeoutSeconds),
-			);
+			const delayMs = this.#compactionDelayMs(idle.timeoutSeconds);
+			this.#compactionTimer = setTimeout(() => this.#onCompactionDue(), delayMs);
+			this.#compactionDueAt = Date.now() + delayMs;
 			this.#compactionTimer.unref?.();
 		}
 	}
@@ -279,6 +303,7 @@ export class IdleMaintenance {
 
 	#onCompactionDue(): void {
 		this.#compactionTimer = undefined;
+		this.#compactionDueAt = undefined;
 		const pending = this.#pending;
 		if (!pending?.compaction) return;
 		// Blocked work stays owed: the owner's refresh re-arms it. Busy means the stretch is not over after all.
@@ -313,6 +338,7 @@ export class IdleMaintenance {
 
 	#onRecapDue(): void {
 		this.#recapTimer = undefined;
+		this.#recapDueAt = undefined;
 		if (!this.#pending?.recap || this.#recapRun) return;
 		if (this.#isBlocked()) return;
 		if (!this.#isSettled()) {
@@ -334,6 +360,7 @@ export class IdleMaintenance {
 		if (!pending) return;
 		const run = new AbortController();
 		this.#recapRun = run;
+		this.#recapDueAt = Date.now();
 		try {
 			if (!session.model || !priorMessageWasGenerated(session.messages)) {
 				this.#complete(pending, "recap");
@@ -360,13 +387,18 @@ export class IdleMaintenance {
 			this.#complete(pending, "recap");
 			logger.debug("Idle recap turn failed", { error: String(error) });
 		} finally {
-			if (this.#recapRun === run) this.#recapRun = undefined;
+			if (this.#recapRun === run) {
+				this.#recapRun = undefined;
+				this.#recapDueAt = undefined;
+			}
 		}
 	}
 
 	/** One kind of work is done. A stretch that owes nothing more is dropped, so later refreshes cost nothing. */
 	#complete(pending: PendingStretch, work: keyof PendingStretch): void {
 		pending[work] = false;
+		if (work === "recap") this.#recapDueAt = undefined;
+		else this.#compactionDueAt = undefined;
 		if (pending.recap || pending.compaction || this.#pending !== pending) return;
 		this.#pending = undefined;
 		this.#check++;

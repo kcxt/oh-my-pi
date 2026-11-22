@@ -98,6 +98,7 @@ Clients MUST continue reading stdout after closing stdin. Normal EOF and extensi
 14.   Transport overflow notifications (`rpc_frame_error`), when an event cannot fit within the transport limits
 15.   Live voice frames (`live_phase`, `live_levels`, `live_transcript`, `live_end`); see [Live Voice Sub-Protocol](#live-voice-sub-protocol)
 16.   Draft-only dictation frames (`dictation_state`, `dictation_transcript`, `dictation_end`); see [Dictation Sub-Protocol](#dictation-sub-protocol)
+17.   Idle recaps (`{ type: "recap", recap, createdAt }`); see [`get_state` payload](#get_state-payload)
 
 Protocol v2 may wrap oversized logical frames from these categories in `rpc_chunk` frames.
 
@@ -468,6 +469,8 @@ Before aborting, the server withdraws every user-authored steering and follow-up
 The response always succeeds, even when the withdrawn input is too large for one response under the negotiated protocol (1 MiB per frame on v1, 64 MiB reassembled on v2). Instead of failing with a transport-limit error, which would lose the already-withdrawn input, the server first omits every entry's `images` and sets `data.imagesDropped: true`, keeping all texts. If the texts alone still do not fit, it returns only the oldest entries that fit (steering first, then follow-ups) and sets `data.truncated: true`; entries after the last one listed are gone. Neither flag is present when the full result fits.
 
 ### `get_state` payload
+
+`idleMaintenance` (`{ recapDueAt?, compactionDueAt? }`, epoch ms) is present only while the session owes and has scheduled idle work: an armed or running idle recap, or an armed idle compaction. It is absent when nothing is owed. RPC sessions run idle maintenance (the `recap.*` and `compaction.idle*` settings still gate each kind), so a host that recycles idle sessions should wait until the field is absent. Work that is owed but not yet armed (the session is still settling, or the setting is off) is not listed; `hasPendingAsyncWork` and `isSettled` cover those. A finished recap arrives as a `{ type: "recap", recap: string, createdAt: number }` frame (`createdAt` epoch ms), which `set_event_filter` does not drop.
 
 `tokensPerSecond` is a number when output throughput is available and `null`
 otherwise. `fastModeEnabled` reports the session's selected model-family tier

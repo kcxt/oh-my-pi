@@ -34,6 +34,7 @@ import type { RpcMessagesPage } from "./rpc-messages";
 import type { GoalModeState } from "../../goals/state";
 import type { RpcGoalOp, RpcGoalResult } from "./rpc-goal";
 import type { BtwHistoryRecord } from "../../session/btw-history";
+import type { IdleMaintenanceDue } from "../../session/idle-maintenance";
 import type { ContextBreakdownView } from "../../session/context-usage-runtime";
 
 // ============================================================================
@@ -235,6 +236,11 @@ export interface RpcSessionState {
 	contextUsage?: ContextUsage;
 	/** Current goal-mode state; `null` when the session has no goal. */
 	goal: GoalModeState | null;
+	/**
+	 * Idle recap / idle compaction the session owes and has scheduled, as epoch ms. Absent when nothing is owed;
+	 * a host must not release the session while it is present.
+	 */
+	idleMaintenance?: IdleMaintenanceDue;
 }
 
 export interface RpcAvailableSlashCommand {
@@ -296,6 +302,16 @@ export interface RpcPromptResultFrame {
  */
 export interface RpcSessionSettledFrame {
 	type: "session_settled";
+}
+
+/**
+ * An idle recap, emitted once the session's recap turn produced one (idle maintenance is on for RPC sessions;
+ * the `recap.*` settings govern it). `createdAt` is epoch ms.
+ */
+export interface RpcRecapFrame {
+	type: "recap";
+	recap: string;
+	createdAt: number;
 }
 
 // ============================================================================
