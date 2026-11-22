@@ -109,7 +109,7 @@ describe("read → edit round-trip for out-of-cwd files", () => {
 		// to the bare `settings.json`, or the edit below resolves against the
 		// existing cwd file and the snapshot-tag guard rejects the valid edit.
 		// Display paths always use `/`, whatever the platform separator.
-		expect(header).toBe(`[src/settings.json → ${nestedFile}#${header.slice(-5, -1)}]`);
+		expect(header).toBe(`[src/settings.json#${header.slice(-5, -1)}]`);
 
 		await new EditTool(session, "hashline").execute("edit-in", {
 			input: `${header}\nPUT 1.=1:\n+ALPHA\n`,
@@ -117,6 +117,24 @@ describe("read → edit round-trip for out-of-cwd files", () => {
 
 		expect(await Bun.file(nestedFile).text()).toBe("ALPHA\nbeta\n");
 		expect(await Bun.file(rootFile).text()).toBe("root\n");
+	});
+
+	it("echoes the resolved path only for a relative caller path, and the arrow header still edits", async () => {
+		const nestedFile = path.join(cwdDir, "src", "settings.json");
+		await fs.mkdir(path.dirname(nestedFile), { recursive: true });
+		await fs.writeFile(nestedFile, "alpha\nbeta\n");
+		const session = createSession(cwdDir);
+
+		const relative = textOutput(await new ReadTool(session).execute("read-rel", { path: "src/settings.json" }));
+		const header = relative.split("\n")[0];
+		expect(header).toMatch(
+			new RegExp(`^\\[src/settings\\.json → ${nestedFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}#[0-9A-F]{4}\\]$`),
+		);
+		const absolute = textOutput(await new ReadTool(session).execute("read-abs", { path: nestedFile }));
+		expect(absolute.split("\n")[0]).toMatch(/^\[src\/settings\.json#[0-9A-F]{4}\]$/);
+
+		await new EditTool(session, "hashline").execute("edit-arrow", { input: `${header}\nPUT 1.=1:\n+ALPHA\n` });
+		expect(await Bun.file(nestedFile).text()).toBe("ALPHA\nbeta\n");
 	});
 
 	it("uses the read-resolved workspace suffix across direct edit modes", async () => {

@@ -67,18 +67,17 @@ export interface HashlineHeaderContext {
 	fullText?: string;
 }
 
-export function formatReadHashlineHeader(displayPath: string, tag: string, absolutePath?: string): string {
+export function formatReadHashlineHeader(displayPath: string, tag: string): string {
 	// In-workspace reads keep their workspace-relative path (e.g.
 	// `src/settings.json`), not just the basename: collapsing to the bare name
-	// made a header ambiguous whenever another same-named file exists at cwd.
+	// made a header ambiguous whenever another same-named file exists at cwd —
+	// the edit tool would resolve the bare name against cwd, hit the wrong
+	// file, and reject the valid edit via the snapshot-tag guard (the authored
+	// path exists, so Patcher's tag-path recovery never runs). The relative
+	// path stays directly resolvable against cwd and names the file uniquely.
 	// Out-of-workspace reads use an absolute displayPath; `shortenPath` keeps
 	// `~/.claude/...` (round-trips through resolveToCwd's ~ expansion) instead
 	// of leaking the full home path into the read output.
-	// A relative path also echoes where it resolved (`[rel → /abs#TAG]`); the parser takes the absolute
-	// form, so the edit lands there even if the shell's cwd moved since.
-	if (!path.isAbsolute(displayPath) && absolutePath && path.isAbsolute(absolutePath)) {
-		return formatHashlineHeader(`${displayPath} → ${absolutePath}`, tag);
-	}
 	const anchor = path.isAbsolute(displayPath) ? shortenPath(displayPath) : displayPath;
 	return formatHashlineHeader(anchor, tag);
 }
@@ -99,7 +98,7 @@ function recordFullHashlineContext(
 			: getEditStore(session).recordSnapshot(absolutePath, normalized);
 	if (!tag) return undefined;
 	return {
-		header: formatReadHashlineHeader(displayPath, tag, absolutePath),
+		header: formatReadHashlineHeader(displayPath, tag),
 		tag,
 		fullText: normalized,
 	};
@@ -131,8 +130,8 @@ export function hashlineHeaderContextForText(
 	return context;
 }
 
-export function hashlineHeaderContext(displayPath: string, tag: string, absolutePath?: string): HashlineHeaderContext {
-	return { header: formatReadHashlineHeader(displayPath, tag, absolutePath), tag };
+export function hashlineHeaderContext(displayPath: string, tag: string): HashlineHeaderContext {
+	return { header: formatReadHashlineHeader(displayPath, tag), tag };
 }
 
 export function prependHashlineHeader(text: string, context: HashlineHeaderContext | undefined): string {

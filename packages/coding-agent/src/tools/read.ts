@@ -1040,6 +1040,30 @@ function appendRepeatReadHint(session: ToolSession, path: string, result: AgentT
 	if (notice && block) block.text = appendReadNotice(block.text, notice, (result.details ??= {}), "\n\n");
 }
 
+/**
+ * A relative path the caller typed resolves against the session cwd, which a later `cd` can move. Its header
+ * names where it resolved: `[rel → /abs#TAG]` (the edit parser takes the absolute side). An absolute path, a
+ * list, a URL or a headerless read keeps the plain `[path#TAG]` header.
+ */
+function echoResolvedHeaderPath(
+	session: ToolSession,
+	readPath: string,
+	result: AgentToolResult<ReadToolDetails>,
+): void {
+	if (
+		path.isAbsolute(readPath) ||
+		readPath.includes("://") ||
+		/[;,]/.test(readPath.replace(READ_SELECTOR_SUFFIX_RE, ""))
+	) {
+		return;
+	}
+	const block = result.content.find(entry => entry.type === "text");
+	const header = block?.text.match(/^\[([^\]\r\n#→]+)#([0-9A-F]{4})\]/);
+	if (!block || !header || path.isAbsolute(header[1])) return;
+	const resolved = path.resolve(session.cwd, header[1]);
+	block.text = `[${header[1]} → ${resolved}#${header[2]}]${block.text.slice(header[0].length)}`;
+}
+
 /** Selector suffixes a read path may carry (`:50-80`, `:raw`, `:-5`, `:5-16,960-973`). */
 const READ_SELECTOR_SUFFIX_RE = /(?::(?:raw|-?\d[\d,+-]*))+$/;
 
@@ -1429,6 +1453,8 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 				}
 			}
 			appendRepeatReadHint(this.session, staged?.path ?? (context.args as ReadParams).path, result);
+			appendCrossRootWarning(this.session, (context.args as ReadParams).path, result);
+			echoResolvedHeaderPath(this.session, (context.args as ReadParams).path, result);
 			return await postProcessToolResult(result, this.name, this.session as unknown as AgentToolContext);
 		} finally {
 			this.#speculativeReads.delete(context.toolCall.id);
@@ -1989,7 +2015,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 				: getEditStore(this.session).recordSnapshotFile(absolutePath);
 			if (tag) {
 				recordFullySeenRows(getEditStore(this.session), absolutePath, tag, outputText, cutLines);
-				outputText = `${formatReadHashlineHeader(formatPathRelativeToCwd(absolutePath, this.session.cwd), tag, absolutePath)}\n${outputText}`;
+				outputText = `${formatReadHashlineHeader(formatPathRelativeToCwd(absolutePath, this.session.cwd), tag)}\n${outputText}`;
 			}
 		} else if (rawSelector && visibleSpans.length > 0) {
 			const rawSeenLines = lineNumbersFromSpans(visibleSpans);
@@ -2061,6 +2087,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 		if (displayTarget && result.details) result.details.displayTarget = displayTarget;
 		appendRepeatReadHint(this.session, params.path, result);
 		appendCrossRootWarning(this.session, params.path, result);
+		echoResolvedHeaderPath(this.session, params.path, result);
 		return result;
 	}
 
@@ -3091,7 +3118,6 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 							hashContext = hashlineHeaderContext(
 								formatPathRelativeToCwd(renderAbsolutePath, this.session.cwd),
 								tag,
-								renderAbsolutePath,
 							);
 						}
 					}
