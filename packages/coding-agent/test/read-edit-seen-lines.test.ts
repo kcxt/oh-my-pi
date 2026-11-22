@@ -62,7 +62,7 @@ describe("read → edit seen-line guard under default settings", () => {
 	it("rejects a hunk anchored on a line the read elided", async () => {
 		const session = createSession(cwd);
 		const read = textOutput(await new ReadTool(session).execute("read", { path: "draw.py:7-7" }));
-		expect(read.split("\n")[0]).toMatch(/^\[draw\.py#[0-9A-F]{4}\]$/);
+		expect(read.split("\n")[0]).toMatch(/^\[draw\.py(?: → [^\]#]+)?#[0-9A-F]{4}\]$/);
 		expect(read).toContain("…");
 		expect(read).not.toContain("beta),");
 
@@ -108,7 +108,7 @@ describe("read → edit seen-line guard under a stale tag", () => {
 	it("reveals a line the earlier read never displayed, then applies the retry", async () => {
 		const session = createSession(cwd);
 		const header = textOutput(await new ReadTool(session).execute("read", { path: "list.txt:18-22" })).split("\n")[0];
-		expect(header).toMatch(/^\[list\.txt#[0-9A-F]{4}\]$/);
+		expect(header).toMatch(/^\[list\.txt(?: → [^\]#]+)?#[0-9A-F]{4}\]$/);
 		const edit = new EditTool(session, "hashline");
 		await edit.execute("edit-1", { input: `${header}\nPUT 20.=20:\n+LINE TWENTY\n` });
 		const afterFirst = await Bun.file(file).text();

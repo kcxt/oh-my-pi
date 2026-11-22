@@ -61,7 +61,7 @@ describe("read tool multi-range selector", () => {
 		const result = await tool.execute("call-multi", { path: `${filePath}:3-5,20-22` });
 		const text = textOutput(result);
 		const firstLine = text.split("\n")[0];
-		expect(firstLine).toMatch(/^\[src\/numbered\.txt#[0-9A-F]{4}\]$/);
+		expect(firstLine).toMatch(/^\[src\/numbered\.txt(?: → [^\]#]+)?#[0-9A-F]{4}\]$/);
 
 		expect(text).toContain("line 3");
 		expect(text).toContain("line 4");
@@ -287,7 +287,7 @@ describe("read tool multi-range selector", () => {
 		const session = createSession(tmpDir, bridge);
 		const text = textOutput(await new ReadTool(session).execute("call-bridge-eof", { path: `${filePath}:1-2,3-3` }));
 		const header = text.split("\n")[0] ?? "";
-		expect(header).toMatch(/^\[bridge\.txt#[0-9A-F]{4}\]$/);
+		expect(header).toMatch(/^\[bridge\.txt(?: → [^\]#]+)?#[0-9A-F]{4}\]$/);
 		expect(text).toContain("1:first\n2:");
 		expect(text).not.toContain("\n4:");
 

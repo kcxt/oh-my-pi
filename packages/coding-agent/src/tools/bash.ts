@@ -34,6 +34,7 @@ import type {
 import { DEFAULT_MAX_BYTES, enforceInlineByteCap } from "@oh-my-pi/pi-tui/tools/streaming-output";
 import { resolveCliEntryCmd } from "../subprocess/worker-client";
 import { TerminalGraphicsDecoder } from "../utils/terminal-graphics";
+import { noteBashCwd } from "../utils/bash-cd-root";
 import type { ToolSession } from ".";
 import { truncateForPrompt } from "./approval";
 import { type BashInteractiveResult, runInteractiveBashPty } from "./bash-interactive";
@@ -1326,6 +1327,7 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 		const virtualCwd = cwd && router.canHandle(cwd) ? router.normalize(cwd) : undefined;
 		const commandCwd = virtualCwd ?? resolveCommandCwd(cwd, this.session.cwd, hoistedShellCwd);
 		if (cwd) ran.cwd = commandCwd;
+		noteBashCwd(this.session, virtualCwd === undefined ? cwd && commandCwd : undefined);
 		if (virtualCwd !== undefined) {
 			if (name !== undefined || canUseInteractiveBashPty(pty === true, ctx)) {
 				throw new ToolError(

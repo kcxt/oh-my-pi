@@ -218,6 +218,9 @@ fn unquote(path: &str) -> &str {
 		.unwrap_or(path)
 }
 fn normalize_hashline_path(raw: &str, cwd: Option<&Path>) -> String {
+	// `read` heads a relative path as `[rel → /abs#TAG]`: the resolved absolute
+	// form wins.
+	let raw = raw.rsplit_once(" → ").map_or(raw, |(_, resolved)| resolved);
 	let cleaned = APPLY_PATCH_PATH_NOISE_RE
 		.replace(unquote(raw.trim()), "")
 		.into_owned();

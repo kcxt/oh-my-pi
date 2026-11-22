@@ -50,6 +50,7 @@ import { resolveEditMode } from "../utils/edit-mode";
 import { attemptEditAutoRepair, type EditAutoRepairOutcome } from "./auto-repair";
 import { type AppliedEditSnapshot, createEditBlackboxRecorder } from "./blackbox";
 import hashlineCompactPrompt from "./hashline-compact.md" with { type: "text" };
+import { crossRootWarning } from "../utils/bash-cd-root";
 import { getLspBatchRequest } from "../lsp/batch";
 import { type EditToolDetails, type EditToolPerFileResult, type Operation } from "@oh-my-pi/pi-tui/tools/edit";
 import {
@@ -190,6 +191,15 @@ function createEditWritethrough(session: ToolSession): WritethroughCallback {
 
 function operationFromNative(op: string): Operation | undefined {
 	return op === "create" || op === "delete" || op === "update" ? op : undefined;
+}
+
+/** Paths the call's headers name, as authored. Untagged inspection: the args object stays unmarked. */
+function authoredPaths(mode: EditMode, params: unknown): string[] {
+	try {
+		return editInspect(mode, JSON.stringify(params ?? {})).paths;
+	} catch {
+		return [];
+	}
 }
 
 /**
@@ -612,6 +622,15 @@ export class EditTool implements AgentTool<TInput> {
 					? `Note: ${display} stopped parsing after this edit; an automatic syntax repair (${repaired.model}) was applied on top:\n${repaired.diff}\nReview the repaired region; adjust it if the repair guessed wrong.`
 					: `Warning: ${display} no longer parses after this edit. The change was applied; re-read the edited region and fix the syntax, or revert if unintended.`,
 			);
+		}
+		if (authoredPaths(this.mode, params).some(authored => !path.isAbsolute(authored) && !authored.includes(" → "))) {
+			for (const file of outcome.files) {
+				const resolvedPath = file.moveTo ?? file.path;
+				if (!path.isAbsolute(resolvedPath)) continue;
+				notes.push(`Resolved: ${path.relative(this.session.cwd, resolvedPath) || resolvedPath} → ${resolvedPath}`);
+				const crossRoot = crossRootWarning(this.session, resolvedPath);
+				if (crossRoot) notes.push(crossRoot);
+			}
 		}
 		if (notes.length > 0) result.content.push({ type: "text", text: notes.join("\n\n") });
 		return result;

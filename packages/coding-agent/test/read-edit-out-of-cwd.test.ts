@@ -109,7 +109,7 @@ describe("read → edit round-trip for out-of-cwd files", () => {
 		// to the bare `settings.json`, or the edit below resolves against the
 		// existing cwd file and the snapshot-tag guard rejects the valid edit.
 		// Display paths always use `/`, whatever the platform separator.
-		expect(header).toBe(`[src/settings.json#${header.slice(-5, -1)}]`);
+		expect(header).toBe(`[src/settings.json → ${nestedFile}#${header.slice(-5, -1)}]`);
 
 		await new EditTool(session, "hashline").execute("edit-in", {
 			input: `${header}\nPUT 1.=1:\n+ALPHA\n`,

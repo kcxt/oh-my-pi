@@ -65,7 +65,7 @@ describe("read tool single-pass file access", () => {
 
 		const session = createSession(tmpDir);
 		const header = textOutput(await new ReadTool(session).execute("bom-read", { path: filePath })).split("\n")[0];
-		expect(header).toMatch(/^\[bom\.ts#[0-9A-F]{4}\]$/);
+		expect(header).toMatch(/^\[bom\.ts(?: → [^\]#]+)?#[0-9A-F]{4}\]$/);
 
 		await new EditTool(session, "hashline").execute("bom-edit", {
 			input: `${header}\nPUT 2.=2:\n+export const b = 22;`,
@@ -157,7 +157,7 @@ describe("read tool single-pass file access", () => {
 			const tool = new ReadTool(createSession(tmpDir));
 			const text = textOutput(await tool.execute("counted", { path: `${filePath}:100-120` }));
 			expect(text).toContain("export const value100 = 100;");
-			expect(text).toMatch(/^\[counted\.ts#[0-9A-F]{4}\]$/m);
+			expect(text).toMatch(/^\[counted\.ts(?: → [^\]#]+)?#[0-9A-F]{4}\]$/m);
 		} finally {
 			bunNamespace.file = originalFile;
 		}

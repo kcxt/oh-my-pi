@@ -75,7 +75,7 @@ describe("read summary", () => {
 		const result = await tool.execute("read-summary-ts", { path: fixture });
 		const text = textOutput(result);
 		const firstLine = text.split("\n")[0];
-		expect(firstLine).toMatch(/^\[src\/fixture\.ts#[0-9A-F]{4}\]$/);
+		expect(firstLine).toMatch(/^\[src\/fixture\.ts(?: → [^\]#]+)?#[0-9A-F]{4}\]$/);
 
 		expect(text).toContain("export function alpha(value: string): string { … }");
 		expect(text).toContain("export function beta(): number { … }");
@@ -177,7 +177,7 @@ describe("read summary", () => {
 
 			expect(result.details?.contentType).toBe("text/markdown");
 			expect(result.details?.displayContent?.text).toBe("# Heading\n\nSome **bold** text.");
-			expect(text.split("\n")[0]).toMatch(new RegExp(`^\\[fixture\\.${extension}#[0-9A-F]{4}\\]$`));
+			expect(text.split("\n")[0]).toMatch(new RegExp(`^\\[fixture\\.${extension}(?: → [^\\]#]+)?#[0-9A-F]{4}\\]$`));
 			expect(text).toContain("1:# Heading");
 			expect(text).toContain("3:Some **bold** text.");
 		}

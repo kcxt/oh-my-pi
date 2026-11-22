@@ -62,6 +62,7 @@ import {
 	spansCoverEveryLine,
 	warmBlockContext,
 } from "../utils/block-context";
+import { crossRootWarning } from "../utils/bash-cd-root";
 import { isCpuProfilePath, renderCpuProfile } from "../utils/cpuprofile";
 import { resolveFileDisplayMode } from "../utils/file-display-mode";
 import { loadHeifImageInput, loadImageInput, loadSvgImageInput } from "../utils/image-loading";
@@ -98,6 +99,7 @@ import {
 	formatPathRelativeToCwd,
 	probeLiteralPathExists,
 	resolveReadPathAsync,
+	resolveToCwd,
 	specialFileKind,
 	splitDelimitedPathEntry,
 	splitMixedUrlPathList,
@@ -1038,6 +1040,22 @@ function appendRepeatReadHint(session: ToolSession, path: string, result: AgentT
 	if (notice && block) block.text = appendReadNotice(block.text, notice, (result.details ??= {}), "\n\n");
 }
 
+/** Selector suffixes a read path may carry (`:50-80`, `:raw`, `:-5`, `:5-16,960-973`). */
+const READ_SELECTOR_SUFFIX_RE = /(?::(?:raw|-?\d[\d,+-]*))+$/;
+
+/** Warn when a relative local path resolved in another git root than the one the last bash command ran in. */
+function appendCrossRootWarning(
+	session: ToolSession,
+	readPath: string,
+	result: AgentToolResult<ReadToolDetails>,
+): void {
+	if (isSingleWebUrl(readPath) || path.isAbsolute(readPath) || readPath.includes("://")) return;
+	const resolved = resolveToCwd(readPath.replace(READ_SELECTOR_SUFFIX_RE, ""), session.cwd);
+	const warning = crossRootWarning(session, resolved);
+	const block = result.content.find(entry => entry.type === "text");
+	if (warning && block) block.text = appendReadNotice(block.text, warning, (result.details ??= {}), "\n\n");
+}
+
 /** Counts `result` as a read of `path`; the loop-breaking hint when it repeats identical output often enough. */
 function repeatReadNotice(
 	session: ToolSession,
@@ -1971,7 +1989,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 				: getEditStore(this.session).recordSnapshotFile(absolutePath);
 			if (tag) {
 				recordFullySeenRows(getEditStore(this.session), absolutePath, tag, outputText, cutLines);
-				outputText = `${formatReadHashlineHeader(formatPathRelativeToCwd(absolutePath, this.session.cwd), tag)}\n${outputText}`;
+				outputText = `${formatReadHashlineHeader(formatPathRelativeToCwd(absolutePath, this.session.cwd), tag, absolutePath)}\n${outputText}`;
 			}
 		} else if (rawSelector && visibleSpans.length > 0) {
 			const rawSeenLines = lineNumbersFromSpans(visibleSpans);
@@ -2042,6 +2060,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 		const displayTarget = InternalUrlRouter.instance().locateSync(params.path);
 		if (displayTarget && result.details) result.details.displayTarget = displayTarget;
 		appendRepeatReadHint(this.session, params.path, result);
+		appendCrossRootWarning(this.session, params.path, result);
 		return result;
 	}
 
@@ -3072,6 +3091,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 							hashContext = hashlineHeaderContext(
 								formatPathRelativeToCwd(renderAbsolutePath, this.session.cwd),
 								tag,
+								renderAbsolutePath,
 							);
 						}
 					}
