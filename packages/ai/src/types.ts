@@ -1241,6 +1241,8 @@ export interface UserMessage {
 	historyRewriteAt?: number;
 	/** Who initiated this message for billing/attribution semantics. */
 	attribution?: MessageAttribution;
+	/** Id the host assigned to this message; round-trips through the session journal and message events. Never sent to the model. */
+	hostMessageId?: string;
 	/** Provider-specific opaque payload used to reconstruct transport-native history. */
 	providerPayload?: ProviderPayload;
 	timestamp: number; // Unix timestamp in milliseconds

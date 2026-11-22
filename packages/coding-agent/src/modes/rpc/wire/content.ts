@@ -97,6 +97,10 @@ export const messageDefs = {
 		"liveSteered?": "boolean",
 		"historyRewriteAt?": "number",
 		"attribution?": "Attribution",
+		"hostMessageId?": doc(
+			"string",
+			"Id the host assigned on `prompt`/`steer`/`follow_up`/`abort_and_prompt`; never sent to the model.",
+		),
 		"providerPayload?": JSON_OBJECT,
 		timestamp: "number",
 	},

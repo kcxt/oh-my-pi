@@ -832,6 +832,8 @@ pub struct UserMessage {
 	pub live_steered: Option<bool>,
 	pub history_rewrite_at: Option<f64>,
 	pub attribution: Option<Attribution>,
+	/// Id the host assigned on `prompt`/`steer`/`follow_up`/`abort_and_prompt`; never sent to the model.
+	pub host_message_id: Option<String>,
 	pub provider_payload: Option<Map<String, Value>>,
 	/// Every key not decoded into a declared field.
 	pub extra: Map<String, Value>,
@@ -864,6 +866,9 @@ impl Serialize for UserMessage {
 		if let Some(value) = &self.attribution {
 			map.serialize_entry("attribution", value)?;
 		}
+		if let Some(value) = &self.host_message_id {
+			map.serialize_entry("hostMessageId", value)?;
+		}
 		if let Some(value) = &self.provider_payload {
 			map.serialize_entry("providerPayload", value)?;
 		}
@@ -877,6 +882,7 @@ impl Serialize for UserMessage {
 				"liveSteered" if self.live_steered.is_some() => continue,
 				"historyRewriteAt" if self.history_rewrite_at.is_some() => continue,
 				"attribution" if self.attribution.is_some() => continue,
+				"hostMessageId" if self.host_message_id.is_some() => continue,
 				"providerPayload" if self.provider_payload.is_some() => continue,
 				_ => {}
 			}
@@ -898,6 +904,7 @@ impl<'de> Deserialize<'de> for UserMessage {
 			live_steered: take(&mut extra, "liveSteered"),
 			history_rewrite_at: take(&mut extra, "historyRewriteAt"),
 			attribution: take(&mut extra, "attribution"),
+			host_message_id: take(&mut extra, "hostMessageId"),
 			provider_payload: take(&mut extra, "providerPayload"),
 			extra,
 		})
@@ -5277,6 +5284,9 @@ pub struct PromptParams {
 	pub images: Option<Vec<ImageContent>>,
 	#[serde(rename = "streamingBehavior", default, skip_serializing_if = "Option::is_none")]
 	pub streaming_behavior: Option<StreamingBehavior>,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5285,6 +5295,9 @@ pub struct SteerParams {
 	/// Images attached to the message.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub images: Option<Vec<ImageContent>>,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5293,6 +5306,9 @@ pub struct FollowUpParams {
 	/// Images attached to the message.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub images: Option<Vec<ImageContent>>,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5312,6 +5328,9 @@ pub struct AbortAndPromptParams {
 	/// Images attached to the message.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub images: Option<Vec<ImageContent>>,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -6252,6 +6271,9 @@ pub struct PromptCommand {
 	pub images: Option<Vec<ImageContent>>,
 	#[serde(rename = "streamingBehavior", default, skip_serializing_if = "Option::is_none")]
 	pub streaming_behavior: Option<StreamingBehavior>,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
 }
 
 impl Command for PromptCommand {
@@ -6271,6 +6293,9 @@ pub struct SteerCommand {
 	/// Images attached to the message.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub images: Option<Vec<ImageContent>>,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
 }
 
 impl Command for SteerCommand {
@@ -6291,6 +6316,9 @@ pub struct FollowUpCommand {
 	/// Images attached to the message.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub images: Option<Vec<ImageContent>>,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
 }
 
 impl Command for FollowUpCommand {
@@ -6362,6 +6390,9 @@ pub struct AbortAndPromptCommand {
 	/// Images attached to the message.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub images: Option<Vec<ImageContent>>,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
 }
 
 impl Command for AbortAndPromptCommand {

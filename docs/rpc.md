@@ -128,16 +128,18 @@ Important edge behavior from runtime:
 
 ### Prompting
 
-- `{ id?, type: "prompt", message: string, images?: ImageContent[], streamingBehavior?: "steer" | "followUp" }`
-- `{ id?, type: "steer", message: string, images?: ImageContent[] }`
-- `{ id?, type: "follow_up", message: string, images?: ImageContent[] }`
+- `{ id?, type: "prompt", message: string, images?: ImageContent[], streamingBehavior?: "steer" | "followUp", hostMessageId?: string }`
+- `{ id?, type: "steer", message: string, images?: ImageContent[], hostMessageId?: string }`
+- `{ id?, type: "follow_up", message: string, images?: ImageContent[], hostMessageId?: string }`
 - `{ id?, type: "remove_queued_message", message: string, queue: "steering" | "followUp" }`
 - `{ id?, type: "promote_queued_message", message: string }`
 - `{ id?, type: "abort" }`
-- `{ id?, type: "abort_and_prompt", message: string, images?: ImageContent[] }`
+- `{ id?, type: "abort_and_prompt", message: string, images?: ImageContent[], hostMessageId?: string }`
 - `{ id?, type: "abort_and_restore_queue" }`
 - `{ id?, type: "new_session", parentSession?: string }`
 - `{ id?, type: "open_session", sessionDir: string, provider?: string, modelId?: string }`
+
+`hostMessageId` (a non-empty string; on `prompt`, `steer`, `follow_up` and `abort_and_prompt`) is stored as `hostMessageId` on the journaled user message entry and echoed on that message's `message_start`/`message_end` events, so a host can match its own message to the transcript entry. It survives reload, compaction and fork, and is never sent to the model. A `/skill:` command or other slash command that does not become a plain user message carries no id.
 
 ### Protocol
 

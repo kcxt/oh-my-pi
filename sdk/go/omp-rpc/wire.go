@@ -569,15 +569,17 @@ func (v ParentIrc) MarshalJSON() ([]byte, error) {
 }
 
 type UserMessage struct {
-	Content          MessageContent             `json:"content"`
-	Timestamp        float64                    `json:"timestamp"`
-	ParentIrc        *ParentIrc                 `json:"parentIrc,omitempty"`
-	Synthetic        *bool                      `json:"synthetic,omitempty"`
-	Steering         *bool                      `json:"steering,omitempty"`
-	LiveSteered      *bool                      `json:"liveSteered,omitempty"`
-	HistoryRewriteAt *float64                   `json:"historyRewriteAt,omitempty"`
-	Attribution      *Attribution               `json:"attribution,omitempty"`
-	ProviderPayload  map[string]json.RawMessage `json:"providerPayload,omitempty"`
+	Content          MessageContent `json:"content"`
+	Timestamp        float64        `json:"timestamp"`
+	ParentIrc        *ParentIrc     `json:"parentIrc,omitempty"`
+	Synthetic        *bool          `json:"synthetic,omitempty"`
+	Steering         *bool          `json:"steering,omitempty"`
+	LiveSteered      *bool          `json:"liveSteered,omitempty"`
+	HistoryRewriteAt *float64       `json:"historyRewriteAt,omitempty"`
+	Attribution      *Attribution   `json:"attribution,omitempty"`
+	// Id the host assigned on `prompt`/`steer`/`follow_up`/`abort_and_prompt`; never sent to the model.
+	HostMessageID   *string                    `json:"hostMessageId,omitempty"`
+	ProviderPayload map[string]json.RawMessage `json:"providerPayload,omitempty"`
 	// Extra holds undeclared keys and declared keys whose value did not decode (that field stays zero).
 	// Encoding writes them back, over a declared field with the same key.
 	Extra map[string]json.RawMessage `json:"-"`
@@ -599,6 +601,7 @@ func (v *UserMessage) decodeFrom(raw map[string]json.RawMessage) error {
 	d.optional("liveSteered", &out.LiveSteered)
 	d.optional("historyRewriteAt", &out.HistoryRewriteAt)
 	d.optional("attribution", &out.Attribution)
+	d.optional("hostMessageId", &out.HostMessageID)
 	d.optional("providerPayload", &out.ProviderPayload)
 	out.Extra = d.rest()
 	if d.err != nil {
@@ -7880,6 +7883,8 @@ type PromptCommand struct {
 	// Images attached to the message.
 	Images            []ImageContent     `json:"images,omitempty"`
 	StreamingBehavior *StreamingBehavior `json:"streamingBehavior,omitempty"`
+	// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	HostMessageID *string `json:"hostMessageId,omitempty"`
 }
 
 // Prompt sends "prompt": Submit a prompt; acknowledged once admitted, completed by its `prompt_result`.
@@ -7895,6 +7900,8 @@ type SteerCommand struct {
 	Message string `json:"message"`
 	// Images attached to the message.
 	Images []ImageContent `json:"images,omitempty"`
+	// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	HostMessageID *string `json:"hostMessageId,omitempty"`
 }
 
 // Steer sends "steer": Queue a steering message.
@@ -7907,6 +7914,8 @@ type FollowUpCommand struct {
 	Message string `json:"message"`
 	// Images attached to the message.
 	Images []ImageContent `json:"images,omitempty"`
+	// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	HostMessageID *string `json:"hostMessageId,omitempty"`
 }
 
 // FollowUp sends "follow_up": Queue a follow-up message.
@@ -7949,6 +7958,8 @@ type AbortAndPromptCommand struct {
 	Message string `json:"message"`
 	// Images attached to the message.
 	Images []ImageContent `json:"images,omitempty"`
+	// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	HostMessageID *string `json:"hostMessageId,omitempty"`
 }
 
 // AbortAndPrompt sends "abort_and_prompt": Abort the current run and submit a prompt; completed by its `prompt_result`.

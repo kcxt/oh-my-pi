@@ -109,6 +109,8 @@ export interface UserMessage {
 	liveSteered?: boolean;
 	historyRewriteAt?: number;
 	attribution?: Attribution;
+	/** Id the host assigned on `prompt`/`steer`/`follow_up`/`abort_and_prompt`; never sent to the model. */
+	hostMessageId?: string;
 	providerPayload?: Record<string, unknown>;
 }
 
@@ -1589,18 +1591,24 @@ export interface PromptParams {
 	/** Images attached to the message. */
 	images?: ImageContent[];
 	streamingBehavior?: StreamingBehavior;
+	/** Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events. */
+	hostMessageId?: string;
 }
 
 export interface SteerParams {
 	message: string;
 	/** Images attached to the message. */
 	images?: ImageContent[];
+	/** Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events. */
+	hostMessageId?: string;
 }
 
 export interface FollowUpParams {
 	message: string;
 	/** Images attached to the message. */
 	images?: ImageContent[];
+	/** Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events. */
+	hostMessageId?: string;
 }
 
 export interface RemoveQueuedMessageParams {
@@ -1616,6 +1624,8 @@ export interface AbortAndPromptParams {
 	message: string;
 	/** Images attached to the message. */
 	images?: ImageContent[];
+	/** Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events. */
+	hostMessageId?: string;
 }
 
 export interface NewSessionParams {

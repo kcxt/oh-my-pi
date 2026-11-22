@@ -8904,6 +8904,7 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 				attribution: promptAttribution,
 				prependMessages: prependNotices,
 				rawText: typedText,
+				hostMessageId: options?.hostMessageId,
 				onPromptQueued: options?.onPromptQueued,
 				onPromptAdmitted: onPromptQueuedAdmitted,
 				promptGeneration: queueGeneration,
@@ -8978,6 +8979,7 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 				attribution: promptAttribution,
 				prependMessages: prependNotices,
 				rawText: typedText,
+				hostMessageId: options?.hostMessageId,
 				preprocessed: {
 					images: normalizedImages,
 					descriptionNotice: imageDescriptionNotice,
@@ -9006,7 +9008,13 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 					synthetic: true,
 					userInitiated: options?.userInitiated === true ? true : undefined,
 				}
-			: { role: "user" as const, content: userContent, attribution: promptAttribution, timestamp: submittedAt };
+			: {
+					role: "user" as const,
+					content: userContent,
+					attribution: promptAttribution,
+					timestamp: submittedAt,
+					...(options?.hostMessageId ? { hostMessageId: options.hostMessageId } : {}),
+				};
 
 		const preludeMessages: AgentMessage[] = [];
 		if (eagerTodoPrelude) {
@@ -9974,6 +9982,7 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 			timestamp: submittedAt,
 			attribution: options?.attribution,
 			rawText: text,
+			hostMessageId: options?.hostMessageId,
 			onPromptQueued: options?.onPromptQueued,
 		});
 	}
@@ -10000,6 +10009,7 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 				timestamp: submittedAt,
 				attribution: options?.attribution,
 				rawText: text,
+				hostMessageId: options?.hostMessageId,
 				onPromptQueued: options?.onPromptQueued,
 			});
 			return;
@@ -10199,6 +10209,8 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 			 * message is not queued, matching prompt()'s idle drop.
 			 */
 			promptGeneration?: number;
+			/** Host-assigned id stored on the queued user message entry. See {@link PromptOptions.hostMessageId}. */
+			hostMessageId?: string;
 		},
 	): Promise<boolean> {
 		const attribution = options?.attribution ?? "user";
@@ -10258,7 +10270,13 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 			if (await this.#sessionGenerationChanged(sessionGeneration)) return false;
 			const records: AgentMessage[] = [...prependMessages, ...attachmentSourceNotices];
 			if (imageDescriptionNotice) records.push(imageDescriptionNotice);
-			const userMessage: AgentMessage = { role: "user", content, attribution, timestamp: timestamp ?? Date.now() };
+			const userMessage: AgentMessage = {
+				role: "user",
+				content,
+				attribution,
+				timestamp: timestamp ?? Date.now(),
+				...(options?.hostMessageId ? { hostMessageId: options.hostMessageId } : {}),
+			};
 			this.#queuedMessageRawText.set(userMessage, rawText);
 			records.push(userMessage);
 			this.#irc.queueAside(records);
@@ -10279,6 +10297,7 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 			attribution,
 			timestamp ?? Date.now(),
 			rawText,
+			options?.hostMessageId,
 		);
 		options?.onPromptQueued?.(queued);
 		options?.onPromptAdmitted?.();
@@ -10302,12 +10321,17 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 		attribution: MessageAttribution,
 		timestamp: number,
 		rawText: string,
+		hostMessageId?: string,
 	): AgentMessage[] {
 		this.#allowQueuedMessageDrainRetry();
-		const userMessage: AgentMessage =
-			mode === "followUp"
-				? { role: "user", content, attribution, timestamp }
-				: { role: "user", content, steering: true, attribution, timestamp };
+		const userMessage: AgentMessage = {
+			role: "user",
+			content,
+			...(mode === "steer" ? { steering: true } : {}),
+			attribution,
+			timestamp,
+			...(hostMessageId ? { hostMessageId } : {}),
+		};
 		this.#queuedMessageRawText.set(userMessage, rawText);
 		const group = [...companions, userMessage];
 		if (mode === "followUp") {

@@ -738,8 +738,19 @@ export class RpcClient {
 	 * use onEvent() to receive streaming events and onPromptResult() to observe its
 	 * completion under that id.
 	 */
-	async prompt(message: string, images?: ImageContent[], streamingBehavior?: "steer" | "followUp"): Promise<string> {
-		const response = await this.#send({ type: "prompt", message, images, streamingBehavior });
+	async prompt(
+		message: string,
+		images?: ImageContent[],
+		streamingBehavior?: "steer" | "followUp",
+		options?: { hostMessageId?: string },
+	): Promise<string> {
+		const response = await this.#send({
+			type: "prompt",
+			message,
+			images,
+			streamingBehavior,
+			hostMessageId: options?.hostMessageId,
+		});
 		this.#getData(response);
 		return response.id ?? "";
 	}
@@ -747,15 +758,15 @@ export class RpcClient {
 	/**
 	 * Queue a steering message to interrupt the agent mid-run.
 	 */
-	async steer(message: string, images?: ImageContent[]): Promise<void> {
-		await this.#send({ type: "steer", message, images });
+	async steer(message: string, images?: ImageContent[], options?: { hostMessageId?: string }): Promise<void> {
+		await this.#send({ type: "steer", message, images, hostMessageId: options?.hostMessageId });
 	}
 
 	/**
 	 * Queue a follow-up message to be processed after the agent finishes.
 	 */
-	async followUp(message: string, images?: ImageContent[]): Promise<void> {
-		await this.#send({ type: "follow_up", message, images });
+	async followUp(message: string, images?: ImageContent[], options?: { hostMessageId?: string }): Promise<void> {
+		await this.#send({ type: "follow_up", message, images, hostMessageId: options?.hostMessageId });
 	}
 
 	/**
@@ -786,8 +797,8 @@ export class RpcClient {
 	/**
 	 * Abort current operation and immediately start a new turn with the given message.
 	 */
-	async abortAndPrompt(message: string, images?: ImageContent[]): Promise<void> {
-		await this.#send({ type: "abort_and_prompt", message, images });
+	async abortAndPrompt(message: string, images?: ImageContent[], options?: { hostMessageId?: string }): Promise<void> {
+		await this.#send({ type: "abort_and_prompt", message, images, hostMessageId: options?.hostMessageId });
 	}
 
 	/**

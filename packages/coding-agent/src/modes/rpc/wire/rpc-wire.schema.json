@@ -1230,6 +1230,10 @@
 				"attribution": {
 					"$ref": "#/$defs/Attribution"
 				},
+				"hostMessageId": {
+					"type": "string",
+					"description": "Id the host assigned on `prompt`/`steer`/`follow_up`/`abort_and_prompt`; never sent to the model."
+				},
 				"providerPayload": {
 					"type": "object",
 					"properties": {},
@@ -6263,6 +6267,10 @@
 				},
 				"streamingBehavior": {
 					"$ref": "#/$defs/StreamingBehavior"
+				},
+				"hostMessageId": {
+					"type": "string",
+					"description": "Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events."
 				}
 			},
 			"required": [
@@ -6281,6 +6289,10 @@
 						"$ref": "#/$defs/ImageContent"
 					},
 					"description": "Images attached to the message."
+				},
+				"hostMessageId": {
+					"type": "string",
+					"description": "Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events."
 				}
 			},
 			"required": [
@@ -6299,6 +6311,10 @@
 						"$ref": "#/$defs/ImageContent"
 					},
 					"description": "Images attached to the message."
+				},
+				"hostMessageId": {
+					"type": "string",
+					"description": "Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events."
 				}
 			},
 			"required": [
@@ -6343,6 +6359,10 @@
 						"$ref": "#/$defs/ImageContent"
 					},
 					"description": "Images attached to the message."
+				},
+				"hostMessageId": {
+					"type": "string",
+					"description": "Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events."
 				}
 			},
 			"required": [

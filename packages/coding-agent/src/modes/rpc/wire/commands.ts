@@ -30,6 +30,10 @@ export interface RpcCommandSpec {
 }
 
 const IMAGES = doc("ImageContent[]", "Images attached to the message.");
+const HOST_MESSAGE_ID = doc(
+	"string",
+	"Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.",
+);
 
 export const rpcCommands: readonly RpcCommandSpec[] = [
 	{
@@ -41,12 +45,25 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 	{
 		name: "prompt",
 		doc: "Submit a prompt; acknowledged once admitted, completed by its `prompt_result`.",
-		params: { message: "string", "images?": IMAGES, "streamingBehavior?": "StreamingBehavior" },
+		params: {
+			message: "string",
+			"images?": IMAGES,
+			"streamingBehavior?": "StreamingBehavior",
+			"hostMessageId?": HOST_MESSAGE_ID,
+		},
 		result: "PromptAck",
 		completion: "prompt_result",
 	},
-	{ name: "steer", doc: "Queue a steering message.", params: { message: "string", "images?": IMAGES } },
-	{ name: "follow_up", doc: "Queue a follow-up message.", params: { message: "string", "images?": IMAGES } },
+	{
+		name: "steer",
+		doc: "Queue a steering message.",
+		params: { message: "string", "images?": IMAGES, "hostMessageId?": HOST_MESSAGE_ID },
+	},
+	{
+		name: "follow_up",
+		doc: "Queue a follow-up message.",
+		params: { message: "string", "images?": IMAGES, "hostMessageId?": HOST_MESSAGE_ID },
+	},
 	{
 		name: "remove_queued_message",
 		doc: "Remove one pending queued message by its queue-chip text.",
@@ -63,7 +80,7 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 	{
 		name: "abort_and_prompt",
 		doc: "Abort the current run and submit a prompt; completed by its `prompt_result`.",
-		params: { message: "string", "images?": IMAGES },
+		params: { message: "string", "images?": IMAGES, "hostMessageId?": HOST_MESSAGE_ID },
 		completion: "prompt_result",
 	},
 	{

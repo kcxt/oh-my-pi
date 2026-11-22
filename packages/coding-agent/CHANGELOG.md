@@ -16,6 +16,7 @@
 
 - `ssh://` host listing, `ssh://` autocomplete and `/ssh list` now include the `Host` aliases from `~/.ssh/config` and `/etc/ssh/ssh_config` (following `Include`); `ssh.json` entries win on a name clash
 - RPC `get_context_breakdown` returns the `/context` category totals (system prompt, tools, instruction files, skills, messages), window, free space and compaction threshold for the current session
+- RPC `prompt`, `steer`, `follow_up` and `abort_and_prompt` accept `hostMessageId`, stored on the journaled user message and echoed on its `message_start`/`message_end` events
 
 ### Fixed
 

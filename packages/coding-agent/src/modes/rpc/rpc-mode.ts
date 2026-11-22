@@ -1921,11 +1921,11 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			if (!isCurrent()) return "cancelled";
 			if (!text.trim() && !images?.length) return "local";
 			if (command.type === "steer") {
-				await session.steer(text, images);
+				await session.steer(text, images, { hostMessageId: command.hostMessageId });
 				return "admitted";
 			}
 			if (command.type === "follow_up") {
-				await session.followUp(text, images);
+				await session.followUp(text, images, { hostMessageId: command.hostMessageId });
 				return "admitted";
 			}
 			if (command.type === "prompt") {
@@ -2005,6 +2005,7 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				startPrompt: onPromptAdmitted =>
 					session.prompt(text, {
 						images,
+						hostMessageId: command.hostMessageId,
 						...(command.type === "prompt" ? { streamingBehavior: command.streamingBehavior } : {}),
 						onPromptAdmitted,
 					}),
@@ -2028,6 +2029,16 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 	// Handle a single command
 	const handleCommandImpl = async (command: RpcCommand): Promise<RpcResponse> => {
 		const id = command.id;
+		if (
+			(command.type === "prompt" ||
+				command.type === "steer" ||
+				command.type === "follow_up" ||
+				command.type === "abort_and_prompt") &&
+			command.hostMessageId !== undefined &&
+			(typeof command.hostMessageId !== "string" || command.hostMessageId.length === 0)
+		) {
+			return error(id, command.type, "hostMessageId must be a non-empty string");
+		}
 
 		switch (command.type) {
 			case "negotiate_protocol": {

@@ -291,6 +291,8 @@ class UserMessage(TypedDict):
     liveSteered: NotRequired[bool]
     historyRewriteAt: NotRequired[float]
     attribution: NotRequired[Attribution]
+    hostMessageId: NotRequired[str]
+    """Id the host assigned on `prompt`/`steer`/`follow_up`/`abort_and_prompt`; never sent to the model."""
     providerPayload: NotRequired[JsonObject]
 
 
@@ -3417,20 +3419,24 @@ class WireClient:
     def _listen(self, frame_type: str, listener: Callable[..., None]) -> Callable[[], None]:
         raise NotImplementedError
 
-    def steer(self, message: str, *, images: Sequence[ImageContent] | None = None) -> None:
+    def steer(self, message: str, *, images: Sequence[ImageContent] | None = None, host_message_id: str | None = None) -> None:
         """Queue a steering message."""
         params: dict[str, object] = {}
         params["message"] = message
         if images is not None:
             params["images"] = list(images)
+        if host_message_id is not None:
+            params["hostMessageId"] = host_message_id
         self._command("steer", params)
 
-    def follow_up(self, message: str, *, images: Sequence[ImageContent] | None = None) -> None:
+    def follow_up(self, message: str, *, images: Sequence[ImageContent] | None = None, host_message_id: str | None = None) -> None:
         """Queue a follow-up message."""
         params: dict[str, object] = {}
         params["message"] = message
         if images is not None:
             params["images"] = list(images)
+        if host_message_id is not None:
+            params["hostMessageId"] = host_message_id
         self._command("follow_up", params)
 
     def remove_queued_message(self, message: str, queue: QueuedMessageQueue) -> RemoveQueuedMessageResult:
