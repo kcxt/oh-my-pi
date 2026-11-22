@@ -1469,6 +1469,11 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 		settledWithoutRun: () => void settleWatcher.check(),
 	});
 	const sessionEvents = new RpcSessionEventForwarder(output);
+	// Opt the RPC session into idle maintenance. The idle recap (`recap.*`) is
+	// otherwise an interactive-mode owner: without this, a session driven over
+	// RPC journals no recap at all. Idle compaction stays gated by
+	// `compaction.idleEnabled`, and the recap by `recap.enabled`.
+	session.enableIdleMaintenance();
 
 	const pendingExtensionRequests = new RpcPendingExtensionRequests();
 	const hostToolBridge = new RpcHostToolBridge(output);
