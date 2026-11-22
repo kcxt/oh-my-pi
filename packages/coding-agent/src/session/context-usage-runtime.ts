@@ -88,3 +88,16 @@ export function toContextBreakdownView(breakdown: ContextBreakdown): ContextBrea
 		...(breakdown.snapcompact ? { snapcompactSavedTokens: breakdown.snapcompact.savedTokens } : {}),
 	};
 }
+
+/**
+ * The `/context` view of `session`, or why there is none: no model is selected, or its context window is
+ * unknown. Shared by RPC `get_context_breakdown` and `omp session inspect`.
+ */
+export function tryContextBreakdownView(session: AgentSession): { view: ContextBreakdownView } | { reason: string } {
+	if (!session.model) return { reason: "no model is selected for this session" };
+	const breakdown = computeSessionContextBreakdown(session, { snapcompactSavings: true });
+	if (!(breakdown.contextWindow > 0) || !Number.isFinite(breakdown.contextWindow)) {
+		return { reason: "the model's context window is unknown or invalid" };
+	}
+	return { view: toContextBreakdownView(breakdown) };
+}

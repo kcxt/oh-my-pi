@@ -92,7 +92,7 @@ import {
 	watchAndReportPromptResult,
 } from "./rpc-prompt-results";
 import { RpcSessionEventForwarder } from "./rpc-session-events";
-import { computeSessionContextBreakdown, toContextBreakdownView } from "../../session/context-usage-runtime";
+import { tryContextBreakdownView } from "../../session/context-usage-runtime";
 import { isSessionSettled } from "../../session/session-settle";
 import { RpcSessionSettleWatcher, watchedScheduledTurnProbe } from "./rpc-session-settle";
 import { RpcSubagentRegistry, readRpcSubagentTranscript, resolveOwnedLiveSubagent } from "./rpc-subagents";
@@ -2787,12 +2787,9 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			}
 
 			case "get_context_breakdown": {
-				if (!session.model) return error(id, "get_context_breakdown", "no model is selected for this session");
-				const breakdown = computeSessionContextBreakdown(session, { snapcompactSavings: true });
-				if (!(breakdown.contextWindow > 0) || !Number.isFinite(breakdown.contextWindow)) {
-					return error(id, "get_context_breakdown", "the model's context window is unknown or invalid");
-				}
-				return success(id, "get_context_breakdown", toContextBreakdownView(breakdown));
+				const result = tryContextBreakdownView(session);
+				if ("reason" in result) return error(id, "get_context_breakdown", result.reason);
+				return success(id, "get_context_breakdown", result.view);
 			}
 
 			case "get_session_lease": {

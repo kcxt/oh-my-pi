@@ -8,6 +8,9 @@
  * so resuming it forks instead of continuing it, and
  * `omp session lease --json -- <id>...` reports which sessions a running omp owns
  * without taking their ownership leases.
+ * `omp session inspect --json <session>` prints what a live session on it would report (model,
+ * context breakdown, slash commands, todos, goal) through a read-only open that never takes
+ * the ownership lease or writes the transcript.
  */
 import chalk from "@oh-my-pi/pi-utils/chalk";
 import { Args, CliUsageError, Command, Flags } from "@oh-my-pi/pi-utils/cli";
@@ -23,7 +26,7 @@ import {
 	type UnpackMode,
 } from "../session/session-transfer";
 
-const ACTIONS = ["pack", "unpack", "moved", "lease"] as const;
+const ACTIONS = ["pack", "unpack", "moved", "lease", "inspect"] as const;
 type SessionAction = (typeof ACTIONS)[number];
 
 const USAGE: Record<SessionAction, string> = {
@@ -31,6 +34,7 @@ const USAGE: Record<SessionAction, string> = {
 	unpack: "omp session unpack <archive.tar> --cwd <dir>",
 	moved: "omp session moved <session> --to <label>",
 	lease: "omp session lease [--json] -- <session-id>...",
+	inspect: "omp session inspect --json <session>",
 };
 
 const UNPACK_NOTE: Record<UnpackMode, string> = {
@@ -63,12 +67,12 @@ export default class Session extends Command {
 
 	static args = {
 		action: Args.string({
-			description: "pack, unpack, moved, or lease",
+			description: "pack, unpack, moved, lease, or inspect",
 			required: true,
 			options: ACTIONS,
 		}),
 		source: Args.string({
-			description: "Session .jsonl path or id (pack, moved); archive path (unpack); session ids (lease)",
+			description: "Session .jsonl path or id (pack, moved, inspect); archive path (unpack); session ids (lease)",
 			required: false,
 		}),
 		output: Args.string({
@@ -80,7 +84,9 @@ export default class Session extends Command {
 	static flags = {
 		cwd: Flags.string({ description: "Directory the session continues in on this machine (unpack)" }),
 		to: Flags.string({ description: "Where the session went, e.g. a machine name (moved)" }),
-		json: Flags.boolean({ description: "Print {held, unknown} session id lists as JSON (lease)" }),
+		json: Flags.boolean({
+			description: "Print {held, unknown} session id lists (lease), or the inspection object (inspect), as JSON",
+		}),
 	};
 
 	static examples = [
@@ -88,6 +94,7 @@ export default class Session extends Command {
 		"# Unpack it on another machine; prints the session file path\n  omp session unpack /tmp/session.tar --cwd ~/src/project",
 		"# Mark the local copy stale; resuming it later forks it\n  omp session moved <file>.jsonl --to cloud",
 		"# List which of these sessions a running omp owns, without taking ownership (`--` keeps ids starting with `-` from parsing as options)\n  omp session lease --json -- <id> <id>",
+		"# Report a session's model, context breakdown, commands, todos and goal without owning it (read-only; works while another omp owns it)\n  omp session inspect --json <file>.jsonl",
 	];
 
 	async run(): Promise<void> {
@@ -104,7 +111,25 @@ export default class Session extends Command {
 			printSessionLeases(sessionIds, flags.json === true);
 			return;
 		}
-		if (flags.json) throw new CliUsageError(`--json only applies to lease. Usage: ${usage}`);
+		if (action === "inspect") {
+			if (flags.cwd !== undefined || flags.to !== undefined) {
+				throw new CliUsageError(`--cwd and --to do not apply to inspect. Usage: ${usage}`);
+			}
+			if (!flags.json) throw new CliUsageError(`inspect only prints JSON. Usage: ${usage}`);
+			if (!args.source) throw new CliUsageError(`Missing session. Usage: ${usage}`);
+			if (argv.length > 2) throw new CliUsageError(`Unexpected argument "${argv.at(-1)}". Usage: ${usage}`);
+			try {
+				// Loaded here, not at the top: inspecting boots the whole agent runtime, the other actions do not.
+				const { inspectSession } = await import("../session/session-inspect");
+				const inspection = await inspectSession(await resolveSessionFileArg(args.source, process.cwd()));
+				process.stdout.write(`${JSON.stringify(inspection)}\n`);
+			} catch (error) {
+				process.stderr.write(`${chalk.red(`error: ${error instanceof Error ? error.message : String(error)}`)}\n`);
+				process.exitCode = 1;
+			}
+			return;
+		}
+		if (flags.json) throw new CliUsageError(`--json only applies to lease and inspect. Usage: ${usage}`);
 		if (argv.length > (action === "pack" ? 3 : 2)) {
 			throw new CliUsageError(`Unexpected argument "${argv.at(-1)}". Usage: ${usage}`);
 		}

@@ -21,6 +21,7 @@
 - RPC `switch_session { claimLease: true }` takes the session's ownership lease on open and fails with `code: "session_busy"` when another process owns it
 - RPC `get_state` reports `idleMaintenance { recapDueAt?, compactionDueAt? }` while idle recap or compaction is owed and scheduled (absent otherwise), and a `recap { recap, createdAt }` frame carries each idle recap
 - RPC `resume { subagentId?, hostMessageId? }` runs the `.`/`c` continue shortcut on the session or one of its subagents, journaling a `host-resume` custom entry first when `hostMessageId` is given
+- `omp session inspect --json <session>` prints one JSON object of what a live session on the transcript reports (model, thinking level, context breakdown, slash commands, todos, goal, lease state), opening it read-only: no ownership lease is taken, nothing is written, and it works while another omp owns the session
 
 ### Fixed
 

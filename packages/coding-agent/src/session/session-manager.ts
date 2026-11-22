@@ -123,6 +123,8 @@ import { loadPinnedSessionIds, sortPinnedFirst } from "./session-pins";
 import {
 	FileSessionStorage,
 	MemorySessionStorage,
+	ReadOnlySessionError,
+	ReadOnlySessionStorage,
 	type SessionStorage,
 	type SessionStorageWriter,
 	SessionWriteConflictError,
@@ -1045,6 +1047,8 @@ export class SessionManager {
 	#inMemoryArtifactCounter = 0;
 
 	#suppressBreadcrumb = false;
+	/** Set by {@link openReadOnly}: every write path is refused or dropped. */
+	#readOnly = false;
 	/**
 	 * The last breadcrumb this manager wrote marked a lazy fresh session whose
 	 * JSONL is not yet on disk. Cleared (and the crumb re-stamped non-fresh) once
@@ -1084,7 +1088,7 @@ export class SessionManager {
 
 	#rememberBreadcrumb(cwd: string, sessionFile: string, fresh = false): void {
 		this.#breadcrumbFresh = fresh;
-		if (this.#suppressBreadcrumb) return;
+		if (this.#suppressBreadcrumb || this.#readOnly) return;
 		writeTerminalBreadcrumb(cwd, sessionFile, fresh, {
 			remoteStorage: !(this.#storage instanceof FileSessionStorage),
 		});
@@ -2162,6 +2166,8 @@ export class SessionManager {
 	}
 
 	#recordEntry(entry: SessionEntry): void {
+		// Read-only managers record nothing: the transcript they inspect is never changed, even in memory.
+		if (this.#readOnly) return;
 		if (this.#released) {
 			logger.warn("Dropped session entry appended after terminal release", { type: entry.type });
 			return;
@@ -2278,11 +2284,13 @@ export class SessionManager {
 
 	/** Puts a binary blob into the blob store and returns the blob reference. */
 	async putBlob(data: Buffer, options?: BlobPutOptions): Promise<BlobPutResult> {
+		if (this.#readOnly) throw new ReadOnlySessionError("store a blob in", "a read-only session");
 		return this.#blobs.put(data, options);
 	}
 
 	/** Synchronous variant of {@link putBlob} for rebuild-only render paths. */
 	putBlobSync(data: Buffer, options?: BlobPutOptions): BlobPutResult {
+		if (this.#readOnly) throw new ReadOnlySessionError("store a blob in", "a read-only session");
 		return this.#blobs.putSync(data, options);
 	}
 
@@ -4457,6 +4465,27 @@ export class SessionManager {
 			history.push(entry);
 			parentId = id;
 		}
+	}
+
+	/**
+	 * Open a session file for inspection only. The manager reads through
+	 * {@link ReadOnlySessionStorage} and is not persistent, so by construction it never
+	 * claims the ownership lease, never writes or rewrites the file or its artifacts,
+	 * writes no terminal breadcrumb, and records no entries: appends (model or thinking
+	 * changes, `session_exit`, titles) are dropped. Works while another process owns the
+	 * session. The session is read as written: format migrations apply in memory only.
+	 * @throws Error when the file is missing, empty, or its header is missing or malformed.
+	 */
+	static async openReadOnly(filePath: string): Promise<SessionManager> {
+		const storage = new ReadOnlySessionStorage();
+		const loaded = await loadSessionFile(filePath, storage, { throwIfMissing: true });
+		const header = loaded.entries.find(entry => entry.type === "session") as SessionHeader | undefined;
+		const recordedCwd = header?.cwd;
+		const cwd = recordedCwd && (await directoryIsEnterable(recordedCwd)) ? recordedCwd : getProjectDir();
+		const manager = new SessionManager(cwd, path.dirname(path.resolve(filePath)), false, storage);
+		manager.#readOnly = true;
+		await manager.#setSessionFile(filePath, loaded, { throwIfMissing: true });
+		return manager;
 	}
 
 	/**

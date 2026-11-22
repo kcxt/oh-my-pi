@@ -1813,3 +1813,80 @@ export class MemorySessionStorage implements SessionStorage {
 		return new MemorySessionStorageWriter(this, path, options);
 	}
 }
+
+/** Thrown by every write on a {@link ReadOnlySessionStorage}. */
+export class ReadOnlySessionError extends Error {
+	constructor(operation: string, target: string) {
+		super(`Session storage is read-only: cannot ${operation} ${target}`);
+		this.name = "ReadOnlySessionError";
+	}
+}
+
+/**
+ * File storage that can only read. Every write, rename, delete and writer throws
+ * {@link ReadOnlySessionError}, and it offers no ownership lease, lock or conditional
+ * delete, so a manager over it can inspect a session another process owns without
+ * touching it. Reads delegate to {@link FileSessionStorage}.
+ */
+export class ReadOnlySessionStorage implements SessionStorage {
+	readonly #files = new FileSessionStorage();
+
+	#refuse(operation: string, target: string): never {
+		throw new ReadOnlySessionError(operation, target);
+	}
+
+	ensureDirSync(dir: string): void {
+		this.#refuse("create directory", dir);
+	}
+	existsSync(path: string): boolean {
+		return this.#files.existsSync(path);
+	}
+	writeTextSync(path: string): void {
+		this.#refuse("write", path);
+	}
+	updateSessionTitle(path: string): Promise<void> {
+		return Promise.reject(new ReadOnlySessionError("retitle", path));
+	}
+	statSync(path: string): SessionStorageStat {
+		return this.#files.statSync(path);
+	}
+	listFilesSync(dir: string, pattern: string): string[] {
+		return this.#files.listFilesSync(dir, pattern);
+	}
+	exists(path: string): Promise<boolean> {
+		return this.#files.exists(path);
+	}
+	readText(path: string): Promise<string> {
+		return this.#files.readText(path);
+	}
+	readTextSync(path: string): string {
+		return this.#files.readTextSync(path);
+	}
+	readTextSlices(path: string, prefixBytes: number, suffixBytes: number): Promise<[string, string]> {
+		return this.#files.readTextSlices(path, prefixBytes, suffixBytes);
+	}
+	scanLines(path: string, visit: (line: string) => boolean): Promise<void> {
+		return this.#files.scanLines(path, visit);
+	}
+	writeText(path: string): Promise<void> {
+		return Promise.reject(new ReadOnlySessionError("write", path));
+	}
+	writeTextAtomic(path: string): Promise<void> {
+		return Promise.reject(new ReadOnlySessionError("write", path));
+	}
+	rename(path: string): Promise<void> {
+		return Promise.reject(new ReadOnlySessionError("rename", path));
+	}
+	unlink(path: string): Promise<void> {
+		return Promise.reject(new ReadOnlySessionError("delete", path));
+	}
+	deleteSessionWithArtifacts(sessionPath: string): Promise<void> {
+		return Promise.reject(new ReadOnlySessionError("delete", sessionPath));
+	}
+	openWriter(path: string): SessionStorageWriter {
+		return this.#refuse("open a writer on", path);
+	}
+	drain(): Promise<void> {
+		return Promise.resolve();
+	}
+}
