@@ -40,7 +40,7 @@ describe("omp session inspect --json", () => {
 	});
 
 	/** A transcript with a saved model unless `model` is false. */
-	async function writeFixture(options: { model?: boolean } = {}): Promise<string> {
+	async function writeFixture(options: { model?: boolean; savedModel?: string } = {}): Promise<string> {
 		const lines = [
 			{
 				type: "session",
@@ -57,7 +57,7 @@ describe("omp session inspect --json", () => {
 							id: "bbbb2222",
 							parentId: null,
 							timestamp: "2026-11-22T00:00:00.500Z",
-							model: "smoke/smoke-model",
+							model: options.savedModel ?? "smoke/smoke-model",
 							role: "default",
 						},
 					]),
@@ -167,6 +167,37 @@ describe("omp session inspect --json", () => {
 				"todoPhases",
 			].sort(),
 		);
+	}, 60_000);
+
+	test("falls back when the saved model's provider is unknown, reporting what was requested", async () => {
+		const file = await writeFixture({ savedModel: "ghost/ghost-model" });
+		const before = await snapshot(file);
+		const { stdout, stderr, code } = await run(["--json", file]);
+		expect(stderr).toBe("");
+		expect(code).toBe(0);
+		const report = JSON.parse(stdout);
+		expect(report.model).toEqual({ provider: "smoke", modelId: "smoke-model" });
+		expect(report.modelFallback).toEqual({
+			requested: "ghost/ghost-model",
+			reason: expect.stringContaining("Could not restore model ghost/ghost-model"),
+		});
+		expect(report.modelFallback.reason).toContain("Using smoke/smoke-model");
+		expect(report.contextBreakdown).toMatchObject({ model: { provider: "smoke", modelId: "smoke-model" } });
+		expect((await snapshot(file)).bytes).toBe(before.bytes);
+	}, 60_000);
+
+	test("reports model null with the reason, exit 0, when the saved model is gone and none is available", async () => {
+		const file = await writeFixture({ savedModel: "ghost/ghost-model" });
+		const { stdout, code } = await run(["--json", file], false);
+		expect(code).toBe(0);
+		const report = JSON.parse(stdout);
+		expect(report.model).toBeNull();
+		expect(report.modelFallback).toMatchObject({
+			requested: "ghost/ghost-model",
+			reason: expect.stringContaining("Could not restore model ghost/ghost-model"),
+		});
+		expect(report.contextBreakdown).toBeNull();
+		expect(report.contextBreakdownReason).toMatch(/no model/);
 	}, 60_000);
 
 	test("reports null with a reason when no model is selected", async () => {
