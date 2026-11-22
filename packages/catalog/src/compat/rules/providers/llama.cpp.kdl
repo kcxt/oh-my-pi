@@ -7,6 +7,11 @@ provider "llama.cpp" {
 	// Replaces the string-only named-tool-choice provider table.
 	supports-named-tool-choice #false
 
+	// Olla sticky sessions: label every request with the conversation id so the
+	// proxy pins repeat turns to one llama.cpp backend for KV-cache reuse.
+	// https://thushan.github.io/olla/concepts/sticky-sessions/
+	session-header "x-olla-session-id"
+
 	class "qwen" {
 		// Responses cannot encode the template's thinking controls.
 		discovery-api "openai-completions"

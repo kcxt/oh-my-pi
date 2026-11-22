@@ -475,7 +475,7 @@ export interface OpenAICompat {
 	/** Request-session header that should mirror the normalized prompt-cache key. Default: unset. */
 	promptCacheSessionHeader?: "x-grok-conv-id" | "x-session-id";
 	/** Request header carrying the conversation session id, independent of prompt caching. Default: unset. */
-	sessionHeader?: "x-litellm-session-id";
+	sessionHeader?: "x-litellm-session-id" | "x-olla-session-id";
 	/** Whether chat-completions payloads should include provider-specific prompt-cache markers. */
 	cacheControlFormat?: "anthropic" | undefined;
 	/**
