@@ -3620,6 +3620,16 @@ class WireClient:
         params["message"] = message
         self._command("steer_subagent", params)
 
+    def set_subagent_model(self, subagent_id: str, provider: str, model_id: str, *, level: ThinkingLevel | None = None) -> None:
+        """Switch the model of one of this session's subagents for that subagent only (the TUI's focused-agent `/switch`): nothing is persisted. Without `level` the subagent takes the default thinking level of the model."""
+        params: dict[str, object] = {}
+        params["subagentId"] = subagent_id
+        params["provider"] = provider
+        params["modelId"] = model_id
+        if level is not None:
+            params["level"] = level
+        self._command("set_subagent_model", params)
+
     def resume(self, *, subagent_id: str | None = None, host_message_id: str | None = None) -> None:
         """Continue an interrupted turn (the TUI `.`/`c` shortcut) on this session, or on the subagent `subagentId`. No user message is journaled; with `hostMessageId` a `host-resume` custom entry is journaled first."""
         params: dict[str, object] = {}

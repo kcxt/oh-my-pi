@@ -96,6 +96,14 @@ export type RpcCommand =
 	| { id?: string; type: "get_subagent_messages"; subagentId?: string; sessionFile?: string; fromByte?: number }
 	| { id?: string; type: "cancel_subagent"; subagentId: string }
 	| { id?: string; type: "steer_subagent"; subagentId: string; message: string }
+	| {
+			id?: string;
+			type: "set_subagent_model";
+			subagentId: string;
+			provider: string;
+			modelId: string;
+			level?: ThinkingLevel;
+	  }
 	| { id?: string; type: "resume"; subagentId?: string; hostMessageId?: string }
 	// Live voice (GPT live bound to this session)
 	| { id?: string; type: "live_start"; voice?: string; instructions?: string }
@@ -569,6 +577,7 @@ export type RpcResponse =
 			data: { cancelled: boolean };
 	  }
 	| { id?: string; type: "response"; command: "steer_subagent"; success: true }
+	| { id?: string; type: "response"; command: "set_subagent_model"; success: true }
 	| { id?: string; type: "response"; command: "resume"; success: true }
 
 	// Model

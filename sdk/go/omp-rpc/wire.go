@@ -8268,6 +8268,19 @@ func (c Commands) SteerSubagent(ctx context.Context, p SteerSubagentCommand) err
 	return c.call(ctx, "steer_subagent", p, 0, nil)
 }
 
+// SetSubagentModelCommand holds the parameters of "set_subagent_model".
+type SetSubagentModelCommand struct {
+	SubagentID string         `json:"subagentId"`
+	Provider   string         `json:"provider"`
+	ModelID    string         `json:"modelId"`
+	Level      *ThinkingLevel `json:"level,omitempty"`
+}
+
+// SetSubagentModel sends "set_subagent_model": Switch the model of one of this session's subagents for that subagent only (the TUI's focused-agent `/switch`): nothing is persisted. Without `level` the subagent takes the default thinking level of the model.
+func (c Commands) SetSubagentModel(ctx context.Context, p SetSubagentModelCommand) error {
+	return c.call(ctx, "set_subagent_model", p, 0, nil)
+}
+
 // ResumeCommand holds the parameters of "resume".
 type ResumeCommand struct {
 	// A subagent of this session whose session is resumed instead.

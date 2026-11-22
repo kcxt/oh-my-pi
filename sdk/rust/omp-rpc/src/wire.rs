@@ -5512,6 +5512,17 @@ pub struct SteerSubagentParams {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetSubagentModelParams {
+	#[serde(rename = "subagentId")]
+	pub subagent_id: String,
+	pub provider: String,
+	#[serde(rename = "modelId")]
+	pub model_id: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub level: Option<ThinkingLevel>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResumeParams {
 	/// A subagent of this session whose session is resumed instead.
 	#[serde(rename = "subagentId", default, skip_serializing_if = "Option::is_none")]
@@ -6781,6 +6792,29 @@ pub struct SteerSubagentCommand {
 
 impl Command for SteerSubagentCommand {
 	const NAME: &'static str = "steer_subagent";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = ();
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		let _ = data;
+		Ok(())
+	}
+}
+
+/// Switch the model of one of this session's subagents for that subagent only (the TUI's focused-agent `/switch`): nothing is persisted. Without `level` the subagent takes the default thinking level of the model.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetSubagentModelCommand {
+	#[serde(rename = "subagentId")]
+	pub subagent_id: String,
+	pub provider: String,
+	#[serde(rename = "modelId")]
+	pub model_id: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub level: Option<ThinkingLevel>,
+}
+
+impl Command for SetSubagentModelCommand {
+	const NAME: &'static str = "set_subagent_model";
 	const TIMEOUT_MS: Option<u64> = None;
 	type Output = ();
 

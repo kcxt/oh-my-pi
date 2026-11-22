@@ -1754,6 +1754,13 @@ export interface SteerSubagentParams {
 	message: string;
 }
 
+export interface SetSubagentModelParams {
+	subagentId: string;
+	provider: string;
+	modelId: string;
+	level?: ThinkingLevel;
+}
+
 export interface ResumeParams {
 	/** A subagent of this session whose session is resumed instead. */
 	subagentId?: string;
@@ -2027,6 +2034,7 @@ export interface RpcWireCommands {
 	get_subagent_messages: { params: GetSubagentMessagesParams; result: SubagentMessages };
 	cancel_subagent: { params: CancelSubagentParams; result: CancelSubagentResult };
 	steer_subagent: { params: SteerSubagentParams; result: undefined };
+	set_subagent_model: { params: SetSubagentModelParams; result: undefined };
 	resume: { params: ResumeParams; result: undefined };
 	live_start: { params: LiveStartParams; result: LiveStartResult };
 	live_connect: { params: LiveConnectParams; result: LiveConnectResult };

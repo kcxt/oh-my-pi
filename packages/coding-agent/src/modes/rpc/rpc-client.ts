@@ -1028,6 +1028,17 @@ export class RpcClient {
 	}
 
 	/**
+	 * Switch one subagent's model for that subagent only (nothing is persisted), like `/switch` on a focused
+	 * agent in the TUI. Without `level` the subagent takes the model's default thinking level. Works on a running
+	 * subagent or a finished one still registered; rejects for an unknown id or model.
+	 */
+	async setSubagentModel(subagentId: string, provider: string, modelId: string, level?: ThinkingLevel): Promise<void> {
+		this.#getData(
+			await this.#send({ type: "set_subagent_model", subagentId, provider, modelId, ...(level ? { level } : {}) }),
+		);
+	}
+
+	/**
 	 * Continue an interrupted turn, like the TUI's `.`/`c` shortcut: an idle session runs omp's recovery
 	 * directive, a streaming one is interrupted and continued. No user message is journaled. `subagentId`
 	 * targets a subagent's session; `hostMessageId` journals a `host-resume` custom entry first.

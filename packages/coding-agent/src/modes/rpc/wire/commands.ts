@@ -202,6 +202,11 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 		params: { subagentId: "string", message: "string" },
 	},
 	{
+		name: "set_subagent_model",
+		doc: "Switch the model of one of this session's subagents for that subagent only (the TUI's focused-agent `/switch`): nothing is persisted. Without `level` the subagent takes the default thinking level of the model.",
+		params: { subagentId: "string", provider: "string", modelId: "string", "level?": "ThinkingLevel" },
+	},
+	{
 		name: "resume",
 		doc: "Continue an interrupted turn (the TUI `.`/`c` shortcut) on this session, or on the subagent `subagentId`. No user message is journaled; with `hostMessageId` a `host-resume` custom entry is journaled first.",
 		params: {

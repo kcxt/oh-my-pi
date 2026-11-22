@@ -165,6 +165,7 @@ Important edge behavior from runtime:
 - `{ id?, type: "get_subagent_messages", subagentId?: string, sessionFile?: string, fromByte?: number }`
 - `{ id?, type: "cancel_subagent", subagentId: string }`
 - `{ id?, type: "steer_subagent", subagentId: string, message: string }`
+- `{ id?, type: "set_subagent_model", subagentId: string, provider: string, modelId: string, level?: ThinkingLevel }`
 - `{ id?, type: "resume", subagentId?: string, hostMessageId?: string }`
 
 `resume` is the TUI's `.`/`c` continue shortcut: `AgentSession.resume()` on this session, or on the subagent named by `subagentId`. No user message is journaled: an idle session runs omp's recovery directive, a streaming one is interrupted and continued. With `hostMessageId`, a `custom` entry `{ customType: "host-resume", data: { hostMessageId, text: "." } }` is journaled in the target session first (the model never sees it, and it stays when nothing could be resumed). It fails with `Nothing to resume` when the session has no conversation to continue, with `code: "session_busy"` when another turn claims the session in between, and with `Subagent not resumable` or `Unknown subagent…` for an id this session did not spawn; a finished subagent that is still registered is revived from its transcript, as `task resume` does. The response arrives once the continuation is scheduled, not when it ends.
@@ -1149,6 +1150,16 @@ subagents run in-process and are steered the same way.
 ```json
 { "id": "req_1", "type": "steer_subagent", "subagentId": "OmpWorker", "message": "Drop the glob, keep the direct path." }
 { "id": "req_1", "type": "response", "command": "steer_subagent", "success": true }
+```
+
+`set_subagent_model` switches one subagent's model, as `/switch` does on a focused
+agent in the TUI: the subagent alone changes and nothing is persisted as a default.
+It reaches a running subagent or a finished one still registered. Without `level`
+the subagent takes the model's default thinking level.
+
+```json
+{ "id": "req_2", "type": "set_subagent_model", "subagentId": "OmpWorker", "provider": "anthropic", "modelId": "claude-opus-5-5" }
+{ "id": "req_2", "type": "response", "command": "set_subagent_model", "success": true }
 ```
 
 The response arrives once the message is accepted: queued into the running

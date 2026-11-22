@@ -877,6 +877,34 @@ export async function handleRpcSteerSubagent(
 	}
 }
 
+/**
+ * Handle RPC `set_subagent_model`: the TUI's focused-agent `/switch`. The subagent (running, or finished and
+ * still registered, revived from its transcript as `resume` does) switches model through
+ * `setModelTemporary`, which persists nothing as a default. The model is looked up in the parent session's
+ * registry, which the subagent shares. Throws a message for an unknown subagent or model.
+ */
+export async function handleRpcSetSubagentModel(
+	session: RpcModelLookupSession,
+	subagentRegistry: Pick<RpcSubagentRegistry, "resolveSessionFile"> | undefined,
+	options: { subagentId: string; provider: string; modelId: string; level?: ThinkingLevel },
+): Promise<void> {
+	if (!subagentRegistry) throw new Error("Subagent event bus is unavailable");
+	const { subagentId } = options;
+	const sessionFile = subagentRegistry.resolveSessionFile({ subagentId });
+	const unknown = new Error(`Subagent not found: ${subagentId}`);
+	if (AgentRegistry.global().get(subagentId)?.sessionFile !== sessionFile) throw unknown;
+	const model = await findRpcModel(session, options.provider, options.modelId);
+	if (!model) throw new Error(`Model not found: ${options.provider}/${options.modelId}`);
+	let live: AgentSessionHandle;
+	try {
+		live = await AgentLifecycleManager.global().ensureLive(subagentId);
+	} catch {
+		throw unknown;
+	}
+	if (AgentRegistry.global().get(subagentId)?.sessionFile !== sessionFile || !isAgentViewSession(live)) throw unknown;
+	await live.setModelTemporary(model, options.level ?? live.resolveTemporaryModelThinkingLevel(model));
+}
+
 /** The session surface `resume` drives: the main session or a subagent's handle. */
 interface RpcResumable {
 	sessionManager: { appendCustomEntry(customType: string, data?: unknown): unknown };
@@ -2628,6 +2656,21 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				}
 				const failure = await handleRpcSteerSubagent(subagentRegistry, command.subagentId, command.message);
 				return failure ? error(id, "steer_subagent", failure) : success(id, "steer_subagent");
+			}
+
+			case "set_subagent_model": {
+				if (typeof command.subagentId !== "string" || command.subagentId.length === 0) {
+					return error(id, "set_subagent_model", "`subagentId` must be a non-empty string.");
+				}
+				if (typeof command.provider !== "string" || typeof command.modelId !== "string") {
+					return error(id, "set_subagent_model", "`provider` and `modelId` are required.");
+				}
+				try {
+					await handleRpcSetSubagentModel(session, subagentRegistry, command);
+					return success(id, "set_subagent_model");
+				} catch (err) {
+					return error(id, "set_subagent_model", err instanceof Error ? err.message : String(err));
+				}
 			}
 
 			case "resume": {
