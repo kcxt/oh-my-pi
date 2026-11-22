@@ -10,9 +10,6 @@ Path suffixes:
 - A single non-raw range also shows 1 line before and 3 after (:50-80 shows 49-83).
 - Non-raw reads (comma lists too) may add the open/close line of a cut block; only :raw stays exact.
 - :raw verbatim without anchors/prefixes; combine :2-4:raw or :raw:2-4 for exactly those lines.
-{{#if IS_HL_MODE}}
-- `path:N-M:raw` returns exactly lines N-M plus an editable `[path#TAG]` tag.
-{{/if}}
 - Beside :raw a bare number is that one line (:17:raw), :17-:raw runs on.
 
 Sources:
