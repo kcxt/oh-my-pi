@@ -1526,6 +1526,11 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 	session.enableIdleMaintenance({
 		onRecap: recap => output({ type: "recap", recap, createdAt: Date.now() }),
 	});
+	// Every title change, not only a builtin command's: generated titles
+	// (`--auto-title`) land after the run that triggered them, with no other frame.
+	session.sessionManager.onSessionNameChanged(() => {
+		output({ type: "session_info_update", title: session.sessionName, sessionId: session.sessionId });
+	});
 
 	const pendingExtensionRequests = new RpcPendingExtensionRequests();
 	const hostToolBridge = new RpcHostToolBridge(output);
