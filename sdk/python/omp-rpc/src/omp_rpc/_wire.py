@@ -1734,6 +1734,11 @@ class GetSessionLeaseResult:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class AppendCustomEntryResult:
+    entry_id: str
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class LogoutResult:
     remaining_source: str | None = None
 
@@ -3282,6 +3287,13 @@ def parse_get_session_lease_result(value: object, path: str = "GetSessionLeaseRe
     )
 
 
+def parse_append_custom_entry_result(value: object, path: str = "AppendCustomEntryResult") -> AppendCustomEntryResult:
+    payload = expect_object(value, path)
+    return AppendCustomEntryResult(
+        entry_id=required(payload, "entryId", decode_str, path),
+    )
+
+
 def parse_logout_result(value: object, path: str = "LogoutResult") -> LogoutResult:
     payload = expect_object(value, path)
     return LogoutResult(
@@ -3777,6 +3789,14 @@ class WireClient:
             params["label"] = label
         self._command("set_label", params)
 
+    def append_custom_entry(self, custom_type: str, *, data: JsonValue | None = None) -> AppendCustomEntryResult:
+        """Journal a `custom` entry on the current branch; it is never sent to the model."""
+        params: dict[str, object] = {}
+        params["customType"] = custom_type
+        if data is not None:
+            params["data"] = data
+        return parse_append_custom_entry_result(self._command("append_custom_entry", params), "append_custom_entry")
+
     def get_branch_messages(self) -> tuple[BranchMessage, ...]:
         """List user messages that can be branched from."""
         params: dict[str, object] = {}
@@ -4100,6 +4120,7 @@ __all__ = [
     "AgentSource",
     "AgentStartEvent",
     "AnthropicServerToolContent",
+    "AppendCustomEntryResult",
     "AskAnswer",
     "AskOption",
     "AskQuestion",
@@ -4304,6 +4325,7 @@ __all__ = [
     "parse_agent_message",
     "parse_agent_start_event",
     "parse_anthropic_server_tool_content",
+    "parse_append_custom_entry_result",
     "parse_ask_answer",
     "parse_ask_option",
     "parse_ask_question",

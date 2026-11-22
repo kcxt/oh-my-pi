@@ -251,6 +251,7 @@ correlate it via `id`. Ordering across concurrent commands is not guaranteed
 - `{ id?, type: "navigate_tree", entryId: string, summarize?: boolean, customInstructions?: string }` → `data: { cancelled: boolean, aborted?: true, editorText?: string }`
 - `{ id?, type: "abort_branch_summary" }`
 - `{ id?, type: "set_label", entryId: string, label?: string }`
+- `{ id?, type: "append_custom_entry", customType: string, data?: unknown }` → `data: { entryId: string }`
 - `{ id?, type: "get_branch_messages" }`
 - `{ id?, type: "get_last_assistant_text" }`
 - `{ id?, type: "set_session_name", name: string }`
@@ -263,6 +264,8 @@ correlate it via `id`. Ordering across concurrent commands is not guaranteed
 `navigate_tree` moves the session's leaf to `entryId` in the same session file, as the interactive `/tree` selector does: a user message rewinds past itself (the leaf moves to its parent and `editorText` carries its text), any other entry becomes the leaf. With `summarize`, the abandoned branch is summarized by the session's model (with `customInstructions`, if given) and the summary entry lands at the target. A refusal never moves the leaf or writes to the transcript. An unknown `entryId` (`code: "entry_not_found"`) and a session already busy when the command runs (`code: "session_busy"`, as for `fork`) are refused before any side effect, so a running `btw` question and a waiting goal continuation are left alone. Two refusals come after the navigation has started, so they still cancel a running `btw` question (a waiting goal continuation is held and then resumes): `code: "session_busy"` when work started while the summary was generated, and `code: "ask_reanswer_unsupported"` for an `ask` tool result whose questions the interactive picker could reopen, since re-answering needs that picker (an `ask` result whose original questions cannot be recovered is a plain leaf move). A goal continuation waiting to start is held until the navigation ends and then runs on the new leaf. Read the new transcript with `get_messages`. `abort_branch_summary` stops a running summary: that `navigate_tree` answers `{ cancelled: true, aborted: true }` and nothing moves; it skips the command queue, which would otherwise hold it behind the `navigate_tree` it stops.
 
 `set_label` sets an entry's label, or clears it when `label` is omitted; it fails for an unknown `entryId`.
+
+`append_custom_entry` journals a `custom` entry on the current branch through the session manager (a proper `id`/`parentId`, written to the session file) and returns its id. Custom entries are never sent to the model. `customType` must be a non-empty string; `data` is any JSON value.
 
 ### Messages
 

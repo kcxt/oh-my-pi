@@ -2243,6 +2243,14 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				return success(id, "set_label");
 			}
 
+			case "append_custom_entry": {
+				if (typeof command.customType !== "string" || command.customType.length === 0) {
+					return error(id, "append_custom_entry", "customType must be a non-empty string");
+				}
+				const entryId = session.sessionManager.appendCustomEntry(command.customType, command.data);
+				return success(id, "append_custom_entry", { entryId });
+			}
+
 			case "open_session": {
 				const requestedModel = await resolveRequestedRpcModel(session, command);
 				await stopDictationForSessionChange();

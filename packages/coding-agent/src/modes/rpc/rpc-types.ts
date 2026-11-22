@@ -146,6 +146,7 @@ export type RpcCommand =
 	| { id?: string; type: "navigate_tree"; entryId: string; summarize?: boolean; customInstructions?: string }
 	| { id?: string; type: "abort_branch_summary" }
 	| { id?: string; type: "set_label"; entryId: string; label?: string }
+	| { id?: string; type: "append_custom_entry"; customType: string; data?: unknown }
 	| { id?: string; type: "get_branch_messages" }
 	| { id?: string; type: "get_last_assistant_text" }
 	| { id?: string; type: "set_session_name"; name: string }
@@ -616,6 +617,7 @@ export type RpcResponse =
 	| { id?: string; type: "response"; command: "navigate_tree"; success: true; data: RpcNavigateTreeResult }
 	| { id?: string; type: "response"; command: "abort_branch_summary"; success: true }
 	| { id?: string; type: "response"; command: "set_label"; success: true }
+	| { id?: string; type: "response"; command: "append_custom_entry"; success: true; data: { entryId: string } }
 	| {
 			id?: string;
 			type: "response";

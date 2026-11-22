@@ -672,6 +672,17 @@
 				"clientOmit": []
 			},
 			{
+				"name": "append_custom_entry",
+				"doc": "Journal a `custom` entry on the current branch; it is never sent to the model.",
+				"params": "AppendCustomEntryParams",
+				"result": "AppendCustomEntryResult",
+				"nullable": false,
+				"unwrap": null,
+				"timeoutMs": null,
+				"completion": null,
+				"clientOmit": []
+			},
+			{
 				"name": "get_branch_messages",
 				"doc": "List user messages that can be branched from.",
 				"params": null,
@@ -7071,6 +7082,29 @@
 					"type": "string"
 				},
 				"label": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"entryId"
+			]
+		},
+		"AppendCustomEntryParams": {
+			"type": "object",
+			"properties": {
+				"customType": {
+					"type": "string"
+				},
+				"data": {}
+			},
+			"required": [
+				"customType"
+			]
+		},
+		"AppendCustomEntryResult": {
+			"type": "object",
+			"properties": {
+				"entryId": {
 					"type": "string"
 				}
 			},

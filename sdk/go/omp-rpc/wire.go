@@ -7656,6 +7656,25 @@ func (v *ExportHtmlResult) decodeFrom(raw map[string]json.RawMessage) error {
 	return nil
 }
 
+type AppendCustomEntryResult struct {
+	EntryID string `json:"entryId"`
+}
+
+func (v *AppendCustomEntryResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "AppendCustomEntryResult", v.decodeFrom)
+}
+
+func (v *AppendCustomEntryResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out AppendCustomEntryResult
+	d := fieldDecoder{raw: raw, owner: "AppendCustomEntryResult"}
+	d.required("entryId", &out.EntryID)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
 type GetBranchMessagesResult struct {
 	Messages []BranchMessage `json:"messages"`
 }
@@ -8503,6 +8522,19 @@ type SetLabelCommand struct {
 // SetLabel sends "set_label": Set or clear (omit `label`) an entry's label.
 func (c Commands) SetLabel(ctx context.Context, p SetLabelCommand) error {
 	return c.call(ctx, "set_label", p, 0, nil)
+}
+
+// AppendCustomEntryCommand holds the parameters of "append_custom_entry".
+type AppendCustomEntryCommand struct {
+	CustomType string          `json:"customType"`
+	Data       json.RawMessage `json:"data,omitempty"`
+}
+
+// AppendCustomEntry sends "append_custom_entry": Journal a `custom` entry on the current branch; it is never sent to the model.
+func (c Commands) AppendCustomEntry(ctx context.Context, p AppendCustomEntryCommand) (AppendCustomEntryResult, error) {
+	var out AppendCustomEntryResult
+	err := c.call(ctx, "append_custom_entry", p, 0, &out)
+	return out, err
 }
 
 // GetBranchMessages sends "get_branch_messages": List user messages that can be branched from.

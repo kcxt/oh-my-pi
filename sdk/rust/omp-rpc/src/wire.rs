@@ -5673,6 +5673,20 @@ pub struct SetLabelParams {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AppendCustomEntryParams {
+	#[serde(rename = "customType")]
+	pub custom_type: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub data: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AppendCustomEntryResult {
+	#[serde(rename = "entryId")]
+	pub entry_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GetBranchMessagesResult {
 	pub messages: Vec<BranchMessage>,
 }
@@ -7276,6 +7290,25 @@ impl Command for SetLabelCommand {
 	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
 		let _ = data;
 		Ok(())
+	}
+}
+
+/// Journal a `custom` entry on the current branch; it is never sent to the model.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AppendCustomEntryCommand {
+	#[serde(rename = "customType")]
+	pub custom_type: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub data: Option<Value>,
+}
+
+impl Command for AppendCustomEntryCommand {
+	const NAME: &'static str = "append_custom_entry";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = AppendCustomEntryResult;
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		serde_json::from_value::<AppendCustomEntryResult>(data.unwrap_or_else(|| Value::Object(Map::new())))
 	}
 }
 

@@ -344,6 +344,12 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 		params: { entryId: "string", "label?": "string" },
 	},
 	{
+		name: "append_custom_entry",
+		doc: "Journal a `custom` entry on the current branch; it is never sent to the model.",
+		params: { customType: "string", "data?": "unknown" },
+		result: { entryId: "string" },
+	},
+	{
 		name: "get_branch_messages",
 		doc: "List user messages that can be branched from.",
 		result: { messages: "BranchMessage[]" },

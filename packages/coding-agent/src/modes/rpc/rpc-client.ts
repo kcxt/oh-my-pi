@@ -1281,6 +1281,15 @@ export class RpcClient {
 	}
 
 	/**
+	 * Journal a `custom` entry on the current branch; it is never sent to the model.
+	 * @returns The new entry's id
+	 */
+	async appendCustomEntry(customType: string, data?: unknown): Promise<{ entryId: string }> {
+		const response = await this.#send({ type: "append_custom_entry", customType, data });
+		return this.#getData(response);
+	}
+
+	/**
 	 * Get messages available for branching.
 	 */
 	async getBranchMessages(): Promise<Array<{ entryId: string; text: string }>> {
