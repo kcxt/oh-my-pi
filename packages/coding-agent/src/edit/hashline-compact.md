@@ -1,4 +1,4 @@
-Hashline patches. Use only lines visible in latest `read`/`search`; elisions are unseen.
+Hashline patches. Use only lines visible in latest `read`/`search`; elisions are unseen. Cross-file refactor moves: `CUT N.=M @name` in the source, then `PUT <N @name` in the destination.
 
 ```text
 *** Begin Patch
