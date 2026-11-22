@@ -38,8 +38,7 @@ export function resolveEditMode(session: EditModeSessionLike): EditModeSetting {
 			identity.class === "deepseek" ||
 			identity.class === "stepfun" ||
 			identity.family === "codex-spark" ||
-			(identity.class === "glm" && identity.family === "flash" && identity.revision === "5.3.0") ||
-			(identity.class === "qwen" && identity.revision === "3.8.0")
+			(identity.class === "glm" && identity.family === "flash" && identity.revision === "5.3.0")
 		) {
 			return "replace";
 		}
