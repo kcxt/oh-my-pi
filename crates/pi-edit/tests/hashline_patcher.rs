@@ -250,6 +250,30 @@ async fn rejection_names_the_path_a_foreign_tag_was_issued_for() {
 	assert_eq!(workspace.read("wt/crates/a/mcp.rs").as_deref(), Some("worktree\n"));
 }
 
+#[tokio::test]
+async fn header_only_reply_has_a_worked_example() {
+	let workspace = common::Workspace::new(EditMode::Hashline);
+	workspace.write("a.txt", "one\n");
+	let tag = workspace.snapshot("a.txt", "one\n", None);
+	let bare = workspace
+		.apply_json(&json!({ "input": format!("[a.txt#{tag}]\n") }), &common::DiskWriter::default())
+		.await
+		.expect_err("no ops")
+		.to_string();
+	assert!(bare.contains("`PUT 12.=14:`") && bare.contains("`CUT 3.=4`"), "{bare}");
+	// A body line that is no op never reaches this reply: the parser already
+	// quotes it.
+	let stray = workspace
+		.apply_json(
+			&json!({ "input": format!("[a.txt#{tag}]\nreplace line one\n") }),
+			&common::DiskWriter::default(),
+		)
+		.await
+		.expect_err("stray line")
+		.to_string();
+	assert!(stray.contains("Got \"replace line one\""), "{stray}");
+}
+
 async fn refusal_kind(workspace: &common::Workspace, input: &str) -> &'static str {
 	workspace
 		.apply_json(&json!({ "input": input }), &common::DiskWriter::default())

@@ -133,7 +133,8 @@ fn current_tag_advice(actual_file_hash: &str) -> String {
 pub fn format_header_only_message(path: &str, actual_file_hash: &str) -> String {
 	format!(
 		"Edit rejected for {path}: no ops follow the header; put them under this file's current \
-		 tag, #{actual_file_hash}.\n{}",
+		 tag, #{actual_file_hash}.\nExample: `PUT 12.=14:` then `+` body lines replaces lines \
+		 12-14; `CUT 3.=4` deletes lines 3-4.\n{}",
 		current_tag_advice(actual_file_hash)
 	)
 }
