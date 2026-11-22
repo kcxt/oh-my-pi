@@ -77,41 +77,36 @@ pub fn format_mismatch_message(details: &MismatchDetails) -> String {
 		.path
 		.as_ref()
 		.map_or_default(|path| format!(" for {path}"));
+	let expected = &details.expected_file_hash;
+	let actual = &details.actual_file_hash;
 	let mut lines = if details.hash_recognized {
-		vec![
-			format!("Edit rejected{path}: file changed between read and edit."),
-			format!(
-				"Section is bound to #{}, but the current file hashes to #{}. If a prior edit in this \
-				 session modified this file, copy the [path#newhash] header from that edit's \
-				 response; otherwise re-read the file with `read` to refresh the tag before retrying.",
-				details.expected_file_hash, details.actual_file_hash
-			),
-		]
+		vec![format!(
+			"Edit rejected{path}: the file changed since tag #{expected} (now #{actual}). If your \
+			 own edit changed it, use the header from that edit's response; otherwise re-read."
+		)]
+	} else if expected.is_empty() {
+		vec![format!(
+			"Edit rejected{path}: the header has no tag. Read the file and copy its [path#TAG] \
+			 header (current tag #{actual})."
+		)]
+	} else if details.tag_origin_paths.is_empty() {
+		vec![format!(
+			"Edit rejected{path}: tag #{expected} was not issued for this file in this session. Read \
+			 the file and copy its [path#TAG] header (current tag #{actual})."
+		)]
 	} else {
-		let mut lines = vec![if details.expected_file_hash.is_empty() {
-			format!(
-				"Edit rejected{path}: the header needs this file's current tag, #{}.",
-				details.actual_file_hash
-			)
-		} else {
-			format!(
-				"Edit rejected{path}: hash #{} is not from this session.",
-				details.expected_file_hash
-			)
-		}];
-		// Name the absolute paths this session has already issued the tag for,
-		// so a lane that pasted a tag from a sibling file (typically the parent
-		// checkout) doesn't follow the suggestion into a wrong-tree write.
-		// One path is the common case; show all so the model can pick the
-		// right one when more than one file shares the tag.
-		for origin in &details.tag_origin_paths {
-			lines.push(format!(
-				"Hash #{} was issued in this session for {origin}.",
-				details.expected_file_hash
-			));
-		}
-		lines.push(current_tag_advice(&details.actual_file_hash));
-		lines
+		// Name the files the tag was issued for, so a lane that pasted a tag from
+		// a sibling checkout does not follow it into a wrong-tree write.
+		details
+			.tag_origin_paths
+			.iter()
+			.map(|origin| {
+				format!(
+					"Edit rejected{path}: tag #{expected} belongs to {origin}. Check you are editing \
+					 the intended file; this file's current tag is #{actual}."
+				)
+			})
+			.collect()
 	};
 	let context = format_anchored_context(&details.anchor_lines, &details.file_lines);
 	if !context.is_empty() {
@@ -121,21 +116,13 @@ pub fn format_mismatch_message(details: &MismatchDetails) -> String {
 	lines.join("\n")
 }
 
-fn current_tag_advice(actual_file_hash: &str) -> String {
-	format!(
-		"The current file hashes to #{actual_file_hash}. Re-read the file with `read` to copy a \
-		 current [path#tag] header — never invent the tag and never reuse one from a prior session."
-	)
-}
-
 /// Diagnostic for input whose only content is a section header: no ops to
 /// apply, but the file's current tag, as an unknown tag would get.
 pub fn format_header_only_message(path: &str, actual_file_hash: &str) -> String {
 	format!(
-		"Edit rejected for {path}: no ops follow the header; put them under this file's current \
-		 tag, #{actual_file_hash}.\nExample: `PUT 12.=14:` then `+` body lines replaces lines \
-		 12-14; `CUT 3.=4` deletes lines 3-4.\n{}",
-		current_tag_advice(actual_file_hash)
+		"Edit rejected for {path}: no ops under the header (current tag #{actual_file_hash}). \
+		 Example: `PUT 12.=14:` followed by `+` lines replaces lines 12–14; `CUT 3.=4` deletes \
+		 lines 3–4."
 	)
 }
 

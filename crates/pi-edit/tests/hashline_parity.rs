@@ -1308,7 +1308,7 @@ fn hashline_streaming_preview_cases_preserve_partial_and_final_contracts() {
 		batch.files[0]
 			.error
 			.as_deref()
-			.is_some_and(|error| error.contains("not from this session"))
+			.is_some_and(|error| error.contains("was not issued for this file"))
 	);
 
 	let batch = preview_for(&workspace, format!("{header_a}\nPUT 2-2:\n"), false);

@@ -83,14 +83,16 @@ fn numbered_lines(count: u32) -> String {
 /// Send `input`, expect a mismatch reply, and return it with the current tag
 /// it names.
 async fn mismatch_reply(workspace: &common::Workspace, input: &str) -> (String, String) {
-	const CURRENT: &str = "current file hashes to #";
 	let error = workspace
 		.apply_json(&json!({ "input": input }), &common::DiskWriter::default())
 		.await
 		.expect_err("unknown tag must be rejected")
 		.to_string();
-	let at = error.find(CURRENT).expect("reply names the current tag") + CURRENT.len();
-	let tag = error[at..at + 4].to_owned();
+	let (at, len) = ["(current tag #", "(now #", "current tag is #"]
+		.iter()
+		.find_map(|marker| error.find(marker).map(|at| (at, marker.len())))
+		.expect("reply names the current tag");
+	let tag = error[at + len..at + len + 4].to_owned();
 	(error, tag)
 }
 
@@ -241,10 +243,7 @@ async fn rejection_names_the_path_a_foreign_tag_was_issued_for() {
 		.expect_err("foreign tag must be rejected")
 		.to_string();
 	let origin = pi_edit::path_policy::canonical_key(&worktree);
-	assert!(
-		error.contains(&format!("Hash #{tag} was issued in this session for {}.", origin.display())),
-		"{error}"
-	);
+	assert!(error.contains(&format!("tag #{tag} belongs to {}.", origin.display())), "{error}");
 	assert!(writer.requests.lock().is_empty());
 	assert_eq!(workspace.read("crates/a/mcp.rs").as_deref(), Some("parent\n"));
 	assert_eq!(workspace.read("wt/crates/a/mcp.rs").as_deref(), Some("worktree\n"));
@@ -272,6 +271,22 @@ async fn header_only_reply_has_a_worked_example() {
 		.expect_err("stray line")
 		.to_string();
 	assert!(stray.contains("Got \"replace line one\""), "{stray}");
+}
+
+#[tokio::test]
+async fn header_with_a_resolved_path_arrow_edits_the_resolved_file() {
+	let workspace = common::Workspace::new(EditMode::Hashline);
+	let abs = workspace.write("a.txt", "one\n");
+	let tag = workspace.snapshot("a.txt", "one\n", None);
+	let header = format!("[a.txt → {}#{tag}]", abs.display());
+	workspace
+		.apply_json(
+			&json!({ "input": format!("{header}\nPUT 1.=1:\n+two\n") }),
+			&common::DiskWriter::default(),
+		)
+		.await
+		.expect("arrow header applies");
+	assert_eq!(workspace.read("a.txt").as_deref(), Some("two\n"));
 }
 
 async fn refusal_kind(workspace: &common::Workspace, input: &str) -> &'static str {
@@ -336,11 +351,10 @@ async fn untagged_sections_get_the_current_tag_like_an_unknown_one() {
 			.expect_err("an untagged section must not apply")
 			.to_string();
 		assert!(
-			error.contains(&format!("the header needs this file's current tag, #{current}.")),
-			"{header}: {error}"
-		);
-		assert!(
-			error.contains(&format!("The current file hashes to #{current}.")),
+			error.contains(&format!(
+				"the header has no tag. Read the file and copy its [path#TAG] header (current tag \
+				 #{current})."
+			)),
 			"{header}: {error}"
 		);
 		assert!(error.contains("*2:beta"), "{header}: {error}");
@@ -371,7 +385,7 @@ async fn untagged_head_and_tail_inserts_do_not_apply() {
 			.await
 			.expect_err("an untagged append must not apply")
 			.to_string();
-		assert!(error.contains("the header needs this file's current tag"), "{header}: {error}");
+		assert!(error.contains("the header has no tag"), "{header}: {error}");
 		assert_eq!(workspace.read("a.txt").as_deref(), Some(UNTAGGED_TEXT), "{header}");
 	}
 }
@@ -397,15 +411,11 @@ async fn header_only_input_gets_the_current_tag() {
 			.to_string();
 		assert!(
 			error.starts_with(&format!(
-				"Edit rejected for a.txt: no ops follow the header; put them under this file's \
-				 current tag, #{current}."
+				"Edit rejected for a.txt: no ops under the header (current tag #{current})."
 			)),
 			"{header}: {error}"
 		);
-		assert!(
-			error.contains(&format!("The current file hashes to #{current}.")),
-			"{header}: {error}"
-		);
+		assert!(error.contains("`PUT 12.=14:`") && error.contains("`CUT 3.=4`"), "{header}: {error}");
 		assert!(writer.requests.lock().is_empty(), "{header}");
 	}
 }
@@ -457,7 +467,10 @@ async fn placeholder_section_does_not_borrow_a_same_path_tag() {
 				.expect_err("a placeholder section must not apply under another header's tag")
 				.to_string();
 			assert!(
-				error.contains(&format!("the header needs this file's current tag, #{current}.")),
+				error.contains(&format!(
+					"the header has no tag. Read the file and copy its [path#TAG] header (current tag \
+					 #{current})."
+				)),
 				"{input}: {error}"
 			);
 			assert!(writer.requests.lock().is_empty(), "{input}");
@@ -494,7 +507,7 @@ fn completed_preview_surfaces_the_current_tag_for_an_untagged_section() {
 	let batch = session.preview();
 	let current = pi_edit::store::file_hash(UNTAGGED_TEXT);
 	let error = batch.files[0].error.as_deref().unwrap_or_default();
-	assert!(error.contains(&format!("The current file hashes to #{current}.")), "{error}");
+	assert!(error.contains(&format!("(current tag #{current})")), "{error}");
 }
 
 #[tokio::test]
@@ -541,7 +554,7 @@ fn completed_preview_surfaces_stale_hash_error() {
 		batch.files[0]
 			.error
 			.as_deref()
-			.is_some_and(|error| error.contains("not from this session"))
+			.is_some_and(|error| error.contains("was not issued for this file"))
 	);
 }
 
@@ -564,9 +577,9 @@ async fn file_ops_reject_a_tag_that_does_not_match_the_file() {
 				.expect_err("a file op under a non-matching tag must be rejected")
 				.to_string();
 			let reason = if recorded {
-				"file changed between read and edit"
+				"the file changed since tag"
 			} else {
-				"not from this session"
+				"was not issued for this file"
 			};
 			assert!(error.contains(reason), "{op} recorded={recorded}: {error}");
 			assert!(writer.requests.lock().is_empty());

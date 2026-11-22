@@ -208,7 +208,7 @@ describe("EditTool details", () => {
 		});
 		expect(result.isError).toBe(true);
 		expect(result.details).toEqual({ diff: "", errorKind: "stale_tag" });
-		expect(result.content[0]).toMatchObject({ text: expect.stringContaining("file changed between read and edit") });
+		expect(result.content[0]).toMatchObject({ text: expect.stringContaining("the file changed since tag") });
 	});
 
 	test("preserves diff metadata while native snapshot pruning removes oversized texts", async () => {
