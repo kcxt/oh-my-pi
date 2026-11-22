@@ -2026,9 +2026,11 @@ export async function runRootCommand(
 		if (parsedArgs.noPty || parsedArgs.mode === "rpc-ui") {
 			Bun.env.PI_NO_PTY = "1";
 		}
+		// RPC hosts opt in to session titles with `--auto-title`; acp never titles.
+		const rpcAutoTitle = parsedArgs.autoTitle === true && !parsedArgs.noTitle && parsedArgs.mode === "rpc";
 		if (
 			parsedArgs.noTitle ||
-			parsedArgs.mode === "rpc" ||
+			(parsedArgs.mode === "rpc" && !rpcAutoTitle) ||
 			parsedArgs.mode === "rpc-ui" ||
 			parsedArgs.mode === "acp"
 		) {
@@ -2405,7 +2407,7 @@ export async function runRootCommand(
 			options.allowSessionModelFallback = isInteractive;
 			options.settingsApproval = isInteractive;
 			options.tuiTranscript = isInteractive;
-			options.autoTitle = isInteractive;
+			options.autoTitle = isInteractive || rpcAutoTitle;
 			options.deferSkillDescriptionCompression = isInteractive;
 			options.settings = settingsInstance;
 			options.telemetry = startupTelemetry;

@@ -95,6 +95,8 @@ export interface Args {
 	noRules?: boolean;
 	noContextFiles?: boolean;
 	noTitle?: boolean;
+	/** `--auto-title`: name the session from its messages in RPC mode, as interactive mode does (RPC hosts opt in). */
+	autoTitle?: boolean;
 	/** `--spinner-interval <ms>`: ephemeral `tui.spinnerInterval` override for every spinner (0 = static). */
 	spinnerInterval?: number;
 	/** `--max-fps <n>`: ephemeral `tui.maxFps` override — the ceiling on how often the TUI repaints. */
@@ -396,6 +398,8 @@ export function parseArgs(inputArgs: string[], extensionFlags?: Map<string, { ty
 			result.noContextFiles = true;
 		} else if (arg === "--no-title") {
 			result.noTitle = true;
+		} else if (arg === "--auto-title") {
+			result.autoTitle = true;
 		} else if (arg === "--no-ui") {
 			result.noUi = true;
 		} else if (arg === "--auto-approve" || arg === "--yolo") {
