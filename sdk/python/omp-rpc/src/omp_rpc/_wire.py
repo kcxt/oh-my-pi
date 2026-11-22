@@ -3743,14 +3743,16 @@ class WireClient:
             params["outputPath"] = str(output_path)
         return Path(required(expect_object(self._command("export_html", params), "export_html"), "path", decode_str, "export_html"))
 
-    def switch_session(self, session_path: str | Path, *, provider: str | None = None, model_id: str | None = None) -> CancellationResult:
-        """Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session."""
+    def switch_session(self, session_path: str | Path, *, provider: str | None = None, model_id: str | None = None, claim_lease: bool | None = None) -> CancellationResult:
+        """Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session. With `claimLease`, take the target's ownership lease first and fail with code `session_busy` when another process holds it."""
         params: dict[str, object] = {}
         params["sessionPath"] = str(session_path)
         if provider is not None:
             params["provider"] = provider
         if model_id is not None:
             params["modelId"] = model_id
+        if claim_lease is not None:
+            params["claimLease"] = claim_lease
         return parse_cancellation_result(self._command("switch_session", params), "switch_session")
 
     def branch(self, entry_id: str) -> BranchResult:

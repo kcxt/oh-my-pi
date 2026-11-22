@@ -310,8 +310,16 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 	},
 	{
 		name: "switch_session",
-		doc: "Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session.",
-		params: { sessionPath: "string", "provider?": "string", "modelId?": "string" },
+		doc: "Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session. With `claimLease`, take the target's ownership lease first and fail with code `session_busy` when another process holds it.",
+		params: {
+			sessionPath: "string",
+			"provider?": "string",
+			"modelId?": "string",
+			"claimLease?": doc(
+				"boolean",
+				"Take the session's ownership lease on open; `session_busy` if another process owns it.",
+			),
+		},
 		result: "CancellationResult",
 	},
 	{

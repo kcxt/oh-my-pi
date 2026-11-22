@@ -3504,6 +3504,30 @@ export class SessionManager {
 	}
 
 	/**
+	 * Take the ownership lease of the session stored at `sessionPath` without
+	 * loading it. Returns the release callback, or `null` while another live
+	 * process owns the session. A host holds the claim across a
+	 * {@link AgentSession.switchSession} so the check and the open are one step.
+	 * File-backed storage only: other backends have no lease and always succeed.
+	 * @throws Error when `sessionPath` holds no readable session header.
+	 */
+	static async claimSessionLease(sessionPath: string): Promise<(() => void) | null> {
+		const sessionId = await readSessionHeaderId(sessionPath);
+		if (!sessionId) throw new Error(`No session found at ${sessionPath}`);
+		return new FileSessionStorage().claimSession(sessionId, sessionPath);
+	}
+
+	/**
+	 * Claim this process's ownership lease on the current session now instead of
+	 * at the first write. False while another live process owns it. In-memory
+	 * sessions have no lease and report true.
+	 */
+	claimOwnership(): boolean {
+		if (!this.#persist || !this.#sessionFile || !this.#storage.claimSession) return true;
+		return !this.#sessionOwnedElsewhere();
+	}
+
+	/**
 	 * Rename a session file that is not loaded in this process, e.g. from the
 	 * resume picker. Returns the title as stored (the session canonicalizes
 	 * it), or null when the rename did not happen.

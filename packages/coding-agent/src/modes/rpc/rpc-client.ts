@@ -1223,13 +1223,21 @@ export class RpcClient {
 
 	/**
 	 * Switch to a different session file, optionally with `model` instead of its saved one.
+	 * With `claimLease`, take the session's ownership lease on open; rejects with code `session_busy`
+	 * (the current session untouched) when another process owns it.
 	 * @returns Object with `cancelled: true` if an extension cancelled the switch
 	 */
 	async switchSession(
 		sessionPath: string,
 		model?: { provider: string; modelId: string },
+		options?: { claimLease?: boolean },
 	): Promise<{ cancelled: boolean }> {
-		const response = await this.#send({ type: "switch_session", sessionPath, ...model });
+		const response = await this.#send({
+			type: "switch_session",
+			sessionPath,
+			...model,
+			claimLease: options?.claimLease,
+		});
 		return this.#getData(response);
 	}
 

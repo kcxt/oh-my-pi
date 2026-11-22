@@ -1848,6 +1848,8 @@ export interface SwitchSessionParams {
 	sessionPath: string;
 	provider?: string;
 	modelId?: string;
+	/** Take the session's ownership lease on open; `session_busy` if another process owns it. */
+	claimLease?: boolean;
 }
 
 export interface BranchParams {

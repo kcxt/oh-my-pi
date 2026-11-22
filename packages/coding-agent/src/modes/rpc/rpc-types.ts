@@ -140,7 +140,14 @@ export type RpcCommand =
 	| { id?: string; type: "get_context_breakdown" }
 	| { id?: string; type: "get_session_lease"; sessionIds: string[] }
 	| { id?: string; type: "export_html"; outputPath?: string }
-	| { id?: string; type: "switch_session"; sessionPath: string; provider?: string; modelId?: string }
+	| {
+			id?: string;
+			type: "switch_session";
+			sessionPath: string;
+			provider?: string;
+			modelId?: string;
+			claimLease?: boolean;
+	  }
 	| { id?: string; type: "branch"; entryId: string }
 	| { id?: string; type: "fork"; entryId?: string }
 	| { id?: string; type: "navigate_tree"; entryId: string; summarize?: boolean; customInstructions?: string }

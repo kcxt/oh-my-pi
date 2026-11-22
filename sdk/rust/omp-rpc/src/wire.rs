@@ -5638,6 +5638,9 @@ pub struct SwitchSessionParams {
 	pub provider: Option<String>,
 	#[serde(rename = "modelId", default, skip_serializing_if = "Option::is_none")]
 	pub model_id: Option<String>,
+	/// Take the session's ownership lease on open; `session_busy` if another process owns it.
+	#[serde(rename = "claimLease", default, skip_serializing_if = "Option::is_none")]
+	pub claim_lease: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -7180,7 +7183,7 @@ impl Command for ExportHtmlCommand {
 	}
 }
 
-/// Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session.
+/// Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session. With `claimLease`, take the target's ownership lease first and fail with code `session_busy` when another process holds it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SwitchSessionCommand {
 	#[serde(rename = "sessionPath")]
@@ -7189,6 +7192,9 @@ pub struct SwitchSessionCommand {
 	pub provider: Option<String>,
 	#[serde(rename = "modelId", default, skip_serializing_if = "Option::is_none")]
 	pub model_id: Option<String>,
+	/// Take the session's ownership lease on open; `session_busy` if another process owns it.
+	#[serde(rename = "claimLease", default, skip_serializing_if = "Option::is_none")]
+	pub claim_lease: Option<bool>,
 }
 
 impl Command for SwitchSessionCommand {

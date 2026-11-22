@@ -18,6 +18,7 @@
 - RPC `get_context_breakdown` returns the `/context` category totals (system prompt, tools, instruction files, skills, messages), window, free space and compaction threshold for the current session
 - RPC `prompt`, `steer`, `follow_up` and `abort_and_prompt` accept `hostMessageId`, stored on the journaled user message and echoed on its `message_start`/`message_end` events
 - RPC `append_custom_entry { customType, data? }` journals a `custom` entry on the current branch through the session manager and returns its id; the model never sees it
+- RPC `switch_session { claimLease: true }` takes the session's ownership lease on open and fails with `code: "session_busy"` when another process owns it
 
 ### Fixed
 

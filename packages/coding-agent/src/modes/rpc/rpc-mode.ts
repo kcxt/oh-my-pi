@@ -57,6 +57,7 @@ import type { RestoredQueuedMessage } from "../../session/agent-session-types";
 import { CACHE_WARMING_MODES } from "../../session/cache-warmer";
 import { findMostRecentNonEmptySession, findRecentSessionContinuation } from "../../session/session-listing";
 import { probeSessionLeases } from "../../session/session-storage";
+import { SessionManager } from "../../session/session-manager";
 import { SKILL_PROMPT_MESSAGE_TYPE, USER_INTERRUPT_LABEL } from "../../session/messages";
 import { executeAcpBuiltinSlashCommand } from "../../slash-commands/acp-builtins";
 import { buildAvailableSlashCommands } from "../../slash-commands/available-commands";
@@ -2149,36 +2150,60 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				if (command.type === "fork" && session.isBusyForSnapshot) {
 					return error(id, "fork", new SessionBusyError("fork the session").message, "session_busy");
 				}
-				const requestedModel =
-					command.type === "switch_session" ? await resolveRequestedRpcModel(session, command) : undefined;
-				// Validation first: a refused change must not cancel the running side question.
-				await stopDictationForSessionChange();
-				await btw.close();
-				await goalController.beginSessionChange();
-				let result: RpcSessionChangeResult | undefined;
+				// `claimLease`: take the target's ownership lease before anything is torn down, so a session
+				// another process owns is refused with the current one untouched.
+				let leaseProbe: (() => void) | null = null;
+				if (command.type === "switch_session" && command.claimLease === true) {
+					try {
+						leaseProbe = await SessionManager.claimSessionLease(command.sessionPath);
+					} catch (leaseError) {
+						return error(
+							id,
+							"switch_session",
+							leaseError instanceof Error ? leaseError.message : String(leaseError),
+						);
+					}
+					if (!leaseProbe) {
+						return error(id, "switch_session", "Session is owned by another omp process", "session_busy");
+					}
+				}
 				try {
-					result = await handleRpcSessionChange(session, command, subagentRegistry, requestedModel);
-				} catch (err) {
-					// fork() refuses when work started while its transition awaited.
-					if (err instanceof SessionBusyError) return error(id, command.type, err.message, "session_busy");
-					throw err;
+					const requestedModel =
+						command.type === "switch_session" ? await resolveRequestedRpcModel(session, command) : undefined;
+					// Validation first: a refused change must not cancel the running side question.
+					await stopDictationForSessionChange();
+					await btw.close();
+					await goalController.beginSessionChange();
+					let result: RpcSessionChangeResult | undefined;
+					try {
+						result = await handleRpcSessionChange(session, command, subagentRegistry, requestedModel);
+					} catch (err) {
+						// fork() refuses when work started while its transition awaited.
+						if (err instanceof SessionBusyError) return error(id, command.type, err.message, "session_busy");
+						throw err;
+					} finally {
+						// Branch and fork switch files in-process without detaching a run (fork requires idle).
+						await goalController.endSessionChange({
+							detachedRun:
+								command.type !== "branch" && command.type !== "fork" && result?.data.cancelled !== true,
+						});
+						// Respond only once this change's reattach (and any queued ahead of it) has run.
+						await goalController.settled();
+					}
+					if (!result.data.cancelled) {
+						// The session manager takes over the lease the probe held, so it is never free in between.
+						if (leaseProbe) session.sessionManager.claimOwnership();
+						inputGate.commitSessionChange(command);
+						// `branch` leaves a live run streaming to its normal yield; new/switch detach it.
+						if (command.type !== "branch" && command.type !== "fork") promptResults.abortOpen();
+						// The detached run publishes no terminal agent_end to settle on.
+						void settleWatcher.check();
+						await emitAvailableCommandsUpdate();
+					}
+					return success(id, result.type, result.data);
 				} finally {
-					// Branch and fork switch files in-process without detaching a run (fork requires idle).
-					await goalController.endSessionChange({
-						detachedRun: command.type !== "branch" && command.type !== "fork" && result?.data.cancelled !== true,
-					});
-					// Respond only once this change's reattach (and any queued ahead of it) has run.
-					await goalController.settled();
+					leaseProbe?.();
 				}
-				if (!result.data.cancelled) {
-					inputGate.commitSessionChange(command);
-					// `branch` leaves a live run streaming to its normal yield; new/switch detach it.
-					if (command.type !== "branch" && command.type !== "fork") promptResults.abortOpen();
-					// The detached run publishes no terminal agent_end to settle on.
-					void settleWatcher.check();
-					await emitAvailableCommandsUpdate();
-				}
-				return success(id, result.type, result.data);
 			}
 
 			case "navigate_tree": {

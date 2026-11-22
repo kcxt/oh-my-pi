@@ -607,7 +607,7 @@
 			},
 			{
 				"name": "switch_session",
-				"doc": "Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session.",
+				"doc": "Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session. With `claimLease`, take the target's ownership lease first and fail with code `session_busy` when another process holds it.",
 				"params": "SwitchSessionParams",
 				"result": "CancellationResult",
 				"nullable": false,
@@ -7031,6 +7031,10 @@
 				},
 				"modelId": {
 					"type": "string"
+				},
+				"claimLease": {
+					"type": "boolean",
+					"description": "Take the session's ownership lease on open; `session_busy` if another process owns it."
 				}
 			},
 			"required": [

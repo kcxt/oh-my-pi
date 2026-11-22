@@ -8459,9 +8459,11 @@ type SwitchSessionCommand struct {
 	SessionPath string  `json:"sessionPath"`
 	Provider    *string `json:"provider,omitempty"`
 	ModelID     *string `json:"modelId,omitempty"`
+	// Take the session's ownership lease on open; `session_busy` if another process owns it.
+	ClaimLease *bool `json:"claimLease,omitempty"`
 }
 
-// SwitchSession sends "switch_session": Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session.
+// SwitchSession sends "switch_session": Switch to another session file. Give provider and modelId together to override the saved model; otherwise an unavailable saved model fails the request and keeps the current session. With `claimLease`, take the target's ownership lease first and fail with code `session_busy` when another process holds it.
 func (c Commands) SwitchSession(ctx context.Context, p SwitchSessionCommand) (CancellationResult, error) {
 	var out CancellationResult
 	err := c.call(ctx, "switch_session", p, 0, &out)

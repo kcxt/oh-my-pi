@@ -245,7 +245,7 @@ correlate it via `id`. Ordering across concurrent commands is not guaranteed
 - `{ id?, type: "get_context_breakdown" }` → `data: { model?: { provider, modelId }, contextWindow, categories: { id, label, tokens }[], usedTokens, autoCompactBufferTokens, freeTokens, thresholdTokens?, snapcompactSavedTokens? }`: the `/context` category totals (`systemPrompt`, `systemContext`, `systemTools`, `instructionFiles`, `skills`, `messages`) for the current session, without per-item entries or transcript text. Errors when no model is selected or its context window is unknown.
 - `{ id?, type: "get_session_lease", sessionIds: string[] }` → `data: { held: string[], unknown: string[] }`: which sessions a running omp (this process included) owns, probed without taking their ownership leases. Ids in neither list are free; `unknown` ids could not be probed. `omp session lease --json -- <id>...` answers the same without an RPC child (`--` keeps ids starting with `-` from parsing as options).
 - `{ id?, type: "export_html", outputPath?: string }`
-- `{ id?, type: "switch_session", sessionPath: string, provider?: string, modelId?: string }`
+- `{ id?, type: "switch_session", sessionPath: string, provider?: string, modelId?: string, claimLease?: boolean }`
 - `{ id?, type: "branch", entryId: string }`
 - `{ id?, type: "fork", entryId?: string }`
 - `{ id?, type: "navigate_tree", entryId: string, summarize?: boolean, customInstructions?: string }` → `data: { cancelled: boolean, aborted?: true, editorText?: string }`
@@ -266,6 +266,8 @@ correlate it via `id`. Ordering across concurrent commands is not guaranteed
 `set_label` sets an entry's label, or clears it when `label` is omitted; it fails for an unknown `entryId`.
 
 `append_custom_entry` journals a `custom` entry on the current branch through the session manager (a proper `id`/`parentId`, written to the session file) and returns its id. Custom entries are never sent to the model. `customType` must be a non-empty string; `data` is any JSON value.
+
+With `claimLease: true`, `switch_session` takes the target session's ownership lease before it touches the current session, and the process keeps it (the session manager owns it from then on, as after a first write). When another live omp process owns the session, the command fails with `code: "session_busy"` and the current session, run and queue are untouched; a `sessionPath` with no readable session header fails without a code. Without the flag the lease is taken lazily at the first write, as before.
 
 ### Messages
 
