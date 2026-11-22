@@ -841,6 +841,7 @@ export async function handleRpcSteerSubagent(
 	subagentRegistry: Pick<RpcSubagentRegistry, "getSubagents">,
 	subagentId: string,
 	message: string,
+	hostMessageId?: string,
 ): Promise<string | undefined> {
 	const notRunning = `Subagent not running: ${subagentId}`;
 	const owned = resolveOwnedLiveSubagent(subagentRegistry, subagentId);
@@ -860,7 +861,7 @@ export async function handleRpcSteerSubagent(
 	const unsubscribe = session.subscribe(event => {
 		if (event.type === "agent_start") accepted.resolve();
 	});
-	session.prompt(message, { streamingBehavior: "steer", throwOnDrop: true }).then(
+	session.prompt(message, { streamingBehavior: "steer", throwOnDrop: true, hostMessageId }).then(
 		() => accepted.resolve(),
 		err => {
 			accepted.reject(err);
@@ -2654,8 +2655,35 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				if (typeof command.message !== "string" || !command.message.trim()) {
 					return error(id, "steer_subagent", "`message` is required for steer_subagent.");
 				}
-				const failure = await handleRpcSteerSubagent(subagentRegistry, command.subagentId, command.message);
+				if (command.hostMessageId !== undefined && (typeof command.hostMessageId !== "string" || !command.hostMessageId)) {
+					return error(id, "steer_subagent", "hostMessageId must be a non-empty string");
+				}
+				const failure = await handleRpcSteerSubagent(
+					subagentRegistry,
+					command.subagentId,
+					command.message,
+					command.hostMessageId,
+				);
 				return failure ? error(id, "steer_subagent", failure) : success(id, "steer_subagent");
+			}
+
+			case "get_queued_prompts": {
+				if (command.subagentId === undefined) return success(id, "get_queued_prompts", session.getQueuedPrompts());
+				if (typeof command.subagentId !== "string" || command.subagentId.length === 0) {
+					return error(id, "get_queued_prompts", "`subagentId` must be a non-empty string.");
+				}
+				if (!subagentRegistry) return error(id, "get_queued_prompts", "Subagent event bus is unavailable");
+				const owned = resolveOwnedLiveSubagent(subagentRegistry, command.subagentId);
+				if (!owned) return error(id, "get_queued_prompts", `Subagent not running: ${command.subagentId}`);
+				if (!isAgentViewSession(owned.session)) {
+					return error(id, "get_queued_prompts", `Subagent not running: ${command.subagentId}`);
+				}
+				// A subagent's session handle lists queue chip texts only: no host ids or images.
+				const queued = owned.session.getQueuedMessages();
+				return success(id, "get_queued_prompts", {
+					steering: queued.steering.map(text => ({ text })),
+					followUp: queued.followUp.map(text => ({ text })),
+				});
 			}
 
 			case "set_subagent_model": {

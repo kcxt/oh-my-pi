@@ -241,8 +241,16 @@ export const stateDefs = {
 	},
 	PromoteQueuedMessageResult: { promoted: "boolean" },
 	RestoredQueuedMessage: doc(
-		{ text: "string", "images?": "ImageContent[]" },
+		{
+			text: "string",
+			"images?": "ImageContent[]",
+			"hostMessageId?": doc("string", "The host-assigned id the message was queued under, when it had one."),
+		},
 		"Queued user content withdrawn from the queue, as the editor would restore it.",
+	),
+	QueuedPrompts: doc(
+		{ steering: "RestoredQueuedMessage[]", followUp: "RestoredQueuedMessage[]" },
+		"The user-authored queued input, oldest first; live steering already sent into the streaming response leads `steering`.",
 	),
 	AbortAndRestoreQueueResult: doc(
 		{

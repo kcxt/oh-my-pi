@@ -11286,6 +11286,16 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 		};
 	}
 
+	/** The queue as {@link getQueuedMessages} lists it, with each message's images and host id, without taking anything out. */
+	getQueuedPrompts(): { steering: RestoredQueuedMessage[]; followUp: RestoredQueuedMessage[] } {
+		return {
+			steering: [...this.agent.peekLiveSteeredMessages(), ...this.agent.peekSteeringQueue()]
+				.filter(isUserAuthoredQueuedMessage)
+				.map(toRestoredQueuedMessage),
+			followUp: this.agent.peekFollowUpQueue().filter(isUserAuthoredQueuedMessage).map(toRestoredQueuedMessage),
+		};
+	}
+
 	/** Last {@link getQueuedMessages} snapshot emitted as a `queue_update` event.
 	 *  Coalesces the agent's internal `onQueueChange` notification down to the
 	 *  externally observable transitions RPC/ACP/TUI subscribers actually care

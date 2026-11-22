@@ -2998,6 +2998,8 @@ func (v *PromoteQueuedMessageResult) decodeFrom(raw map[string]json.RawMessage) 
 type RestoredQueuedMessage struct {
 	Text   string         `json:"text"`
 	Images []ImageContent `json:"images,omitempty"`
+	// The host-assigned id the message was queued under, when it had one.
+	HostMessageID *string `json:"hostMessageId,omitempty"`
 }
 
 func (v *RestoredQueuedMessage) UnmarshalJSON(data []byte) error {
@@ -3009,6 +3011,29 @@ func (v *RestoredQueuedMessage) decodeFrom(raw map[string]json.RawMessage) error
 	d := fieldDecoder{raw: raw, owner: "RestoredQueuedMessage"}
 	d.required("text", &out.Text)
 	d.optional("images", &out.Images)
+	d.optional("hostMessageId", &out.HostMessageID)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+// The user-authored queued input, oldest first; live steering already sent into the streaming response leads `steering`.
+type QueuedPrompts struct {
+	Steering []RestoredQueuedMessage `json:"steering"`
+	FollowUp []RestoredQueuedMessage `json:"followUp"`
+}
+
+func (v *QueuedPrompts) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "QueuedPrompts", v.decodeFrom)
+}
+
+func (v *QueuedPrompts) decodeFrom(raw map[string]json.RawMessage) error {
+	var out QueuedPrompts
+	d := fieldDecoder{raw: raw, owner: "QueuedPrompts"}
+	d.required("steering", &out.Steering)
+	d.required("followUp", &out.FollowUp)
 	if d.err != nil {
 		return d.err
 	}
@@ -8261,11 +8286,25 @@ func (c Commands) CancelSubagent(ctx context.Context, p CancelSubagentCommand) (
 type SteerSubagentCommand struct {
 	SubagentID string `json:"subagentId"`
 	Message    string `json:"message"`
+	// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	HostMessageID *string `json:"hostMessageId,omitempty"`
 }
 
 // SteerSubagent sends "steer_subagent": Send a message to a running subagent as its user.
 func (c Commands) SteerSubagent(ctx context.Context, p SteerSubagentCommand) error {
 	return c.call(ctx, "steer_subagent", p, 0, nil)
+}
+
+// GetQueuedPromptsCommand holds the parameters of "get_queued_prompts".
+type GetQueuedPromptsCommand struct {
+	SubagentID *string `json:"subagentId,omitempty"`
+}
+
+// GetQueuedPrompts sends "get_queued_prompts": List the user-authored input queued on this session, or on the subagent `subagentId`, without taking it out. A subagent's entries carry no host ids or images.
+func (c Commands) GetQueuedPrompts(ctx context.Context, p GetQueuedPromptsCommand) (QueuedPrompts, error) {
+	var out QueuedPrompts
+	err := c.call(ctx, "get_queued_prompts", p, 0, &out)
+	return out, err
 }
 
 // SetSubagentModelCommand holds the parameters of "set_subagent_model".

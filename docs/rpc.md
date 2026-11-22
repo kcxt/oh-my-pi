@@ -164,7 +164,8 @@ Important edge behavior from runtime:
 - `{ id?, type: "get_subagents" }`
 - `{ id?, type: "get_subagent_messages", subagentId?: string, sessionFile?: string, fromByte?: number }`
 - `{ id?, type: "cancel_subagent", subagentId: string }`
-- `{ id?, type: "steer_subagent", subagentId: string, message: string }`
+- `{ id?, type: "steer_subagent", subagentId: string, message: string, hostMessageId?: string }`
+- `{ id?, type: "get_queued_prompts", subagentId?: string }`
 - `{ id?, type: "set_subagent_model", subagentId: string, provider: string, modelId: string, level?: ThinkingLevel }`
 - `{ id?, type: "resume", subagentId?: string, hostMessageId?: string }`
 
@@ -1151,6 +1152,16 @@ subagents run in-process and are steered the same way.
 { "id": "req_1", "type": "steer_subagent", "subagentId": "OmpWorker", "message": "Drop the glob, keep the direct path." }
 { "id": "req_1", "type": "response", "command": "steer_subagent", "success": true }
 ```
+
+`steer_subagent` takes the same optional `hostMessageId` as `prompt`: the subagent stores it on the
+user message and echoes it on that message's `message_start`/`message_end`, so a host can tell when
+its steer was read.
+
+`get_queued_prompts` lists the user-authored input queued on the session (`{ steering, followUp }`,
+oldest first, live steering already sent into the streaming response leading `steering`) without
+taking anything out. Each entry carries its `text`, `images` and the `hostMessageId` it was queued
+under. With `subagentId` it lists that running subagent's queue instead; those entries carry the
+text only.
 
 `set_subagent_model` switches one subagent's model, as `/switch` does on a focused
 agent in the TUI: the subagent alone changes and nothing is persisted as a default.

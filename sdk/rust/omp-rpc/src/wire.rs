@@ -3348,6 +3348,17 @@ pub struct RestoredQueuedMessage {
 	pub text: String,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub images: Option<Vec<ImageContent>>,
+	/// The host-assigned id the message was queued under, when it had one.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
+}
+
+/// The user-authored queued input, oldest first; live steering already sent into the streaming response leads `steering`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct QueuedPrompts {
+	pub steering: Vec<RestoredQueuedMessage>,
+	#[serde(rename = "followUp")]
+	pub follow_up: Vec<RestoredQueuedMessage>,
 }
 
 /// User-authored queued input withdrawn before the abort, oldest first.
@@ -5509,6 +5520,15 @@ pub struct SteerSubagentParams {
 	#[serde(rename = "subagentId")]
 	pub subagent_id: String,
 	pub message: String,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GetQueuedPromptsParams {
+	#[serde(rename = "subagentId", default, skip_serializing_if = "Option::is_none")]
+	pub subagent_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -6788,6 +6808,9 @@ pub struct SteerSubagentCommand {
 	#[serde(rename = "subagentId")]
 	pub subagent_id: String,
 	pub message: String,
+	/// Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events.
+	#[serde(rename = "hostMessageId", default, skip_serializing_if = "Option::is_none")]
+	pub host_message_id: Option<String>,
 }
 
 impl Command for SteerSubagentCommand {
@@ -6798,6 +6821,23 @@ impl Command for SteerSubagentCommand {
 	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
 		let _ = data;
 		Ok(())
+	}
+}
+
+/// List the user-authored input queued on this session, or on the subagent `subagentId`, without taking it out. A subagent's entries carry no host ids or images.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct GetQueuedPromptsCommand {
+	#[serde(rename = "subagentId", default, skip_serializing_if = "Option::is_none")]
+	pub subagent_id: Option<String>,
+}
+
+impl Command for GetQueuedPromptsCommand {
+	const NAME: &'static str = "get_queued_prompts";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = QueuedPrompts;
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		serde_json::from_value::<QueuedPrompts>(data.unwrap_or_else(|| Value::Object(Map::new())))
 	}
 }
 

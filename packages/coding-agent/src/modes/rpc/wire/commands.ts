@@ -199,7 +199,13 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 	{
 		name: "steer_subagent",
 		doc: "Send a message to a running subagent as its user.",
-		params: { subagentId: "string", message: "string" },
+		params: { subagentId: "string", message: "string", "hostMessageId?": HOST_MESSAGE_ID },
+	},
+	{
+		name: "get_queued_prompts",
+		doc: "List the user-authored input queued on this session, or on the subagent `subagentId`, without taking it out. A subagent's entries carry no host ids or images.",
+		params: { "subagentId?": "string" },
+		result: "QueuedPrompts",
 	},
 	{
 		name: "set_subagent_model",

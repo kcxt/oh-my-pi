@@ -320,6 +320,17 @@
 				"clientOmit": []
 			},
 			{
+				"name": "get_queued_prompts",
+				"doc": "List the user-authored input queued on this session, or on the subagent `subagentId`, without taking it out. A subagent's entries carry no host ids or images.",
+				"params": "GetQueuedPromptsParams",
+				"result": "QueuedPrompts",
+				"nullable": false,
+				"unwrap": null,
+				"timeoutMs": null,
+				"completion": null,
+				"clientOmit": []
+			},
+			{
 				"name": "set_subagent_model",
 				"doc": "Switch the model of one of this session's subagents for that subagent only (the TUI's focused-agent `/switch`): nothing is persisted. Without `level` the subagent takes the default thinking level of the model.",
 				"params": "SetSubagentModelParams",
@@ -3177,12 +3188,38 @@
 					"items": {
 						"$ref": "#/$defs/ImageContent"
 					}
+				},
+				"hostMessageId": {
+					"type": "string",
+					"description": "The host-assigned id the message was queued under, when it had one."
 				}
 			},
 			"required": [
 				"text"
 			],
 			"description": "Queued user content withdrawn from the queue, as the editor would restore it."
+		},
+		"QueuedPrompts": {
+			"type": "object",
+			"properties": {
+				"steering": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/RestoredQueuedMessage"
+					}
+				},
+				"followUp": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/RestoredQueuedMessage"
+					}
+				}
+			},
+			"required": [
+				"steering",
+				"followUp"
+			],
+			"description": "The user-authored queued input, oldest first; live steering already sent into the streaming response leads `steering`."
 		},
 		"AbortAndRestoreQueueResult": {
 			"type": "object",
@@ -6774,12 +6811,24 @@
 				},
 				"message": {
 					"type": "string"
+				},
+				"hostMessageId": {
+					"type": "string",
+					"description": "Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events."
 				}
 			},
 			"required": [
 				"subagentId",
 				"message"
 			]
+		},
+		"GetQueuedPromptsParams": {
+			"type": "object",
+			"properties": {
+				"subagentId": {
+					"type": "string"
+				}
+			}
 		},
 		"SetSubagentModelParams": {
 			"type": "object",

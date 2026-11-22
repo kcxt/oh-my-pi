@@ -27,6 +27,7 @@ import {
 } from "./rpc-messages";
 import type {
 	RpcAbortAndRestoreQueueResult,
+	RpcQueuedPrompts,
 	RpcAvailableCommandsUpdateFrame,
 	ContextBreakdownView,
 	RpcBtwDeltaFrame,
@@ -1023,8 +1024,15 @@ export class RpcClient {
 	 * the subagent's turn starts; rejects when the subagent is not running or the
 	 * message is dropped or refused before that.
 	 */
-	async steerSubagent(subagentId: string, message: string): Promise<void> {
-		this.#getData(await this.#send({ type: "steer_subagent", subagentId, message }));
+	async steerSubagent(subagentId: string, message: string, hostMessageId?: string): Promise<void> {
+		this.#getData(
+			await this.#send({ type: "steer_subagent", subagentId, message, ...(hostMessageId ? { hostMessageId } : {}) }),
+		);
+	}
+
+	/** The user-authored input queued on this session, or on the subagent `subagentId`, without taking it out. */
+	async getQueuedPrompts(subagentId?: string): Promise<RpcQueuedPrompts> {
+		return this.#getData(await this.#send({ type: "get_queued_prompts", ...(subagentId ? { subagentId } : {}) }));
 	}
 
 	/**

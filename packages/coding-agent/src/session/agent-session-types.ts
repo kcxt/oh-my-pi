@@ -660,7 +660,12 @@ export interface ResetSessionContextResult {
 }
 
 /** Queued user content restored to the editor. */
-export type RestoredQueuedMessage = { text: string; images?: ImageContent[] };
+export type RestoredQueuedMessage = {
+	text: string;
+	images?: ImageContent[];
+	/** The host-assigned id the message was queued under (`PromptOptions.hostMessageId`), when it had one. */
+	hostMessageId?: string;
+};
 
 /** Options for the same ephemeral side turn used by /btw. */
 export interface EphemeralTurnOptions {

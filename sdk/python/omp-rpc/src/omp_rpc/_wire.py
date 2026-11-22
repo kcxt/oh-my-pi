@@ -822,6 +822,15 @@ class RestoredQueuedMessage:
     """Queued user content withdrawn from the queue, as the editor would restore it."""
     text: str
     images: tuple[ImageContent, ...] | None = None
+    host_message_id: str | None = None
+    """The host-assigned id the message was queued under, when it had one."""
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class QueuedPrompts:
+    """The user-authored queued input, oldest first; live steering already sent into the streaming response leads `steering`."""
+    steering: tuple[RestoredQueuedMessage, ...]
+    follow_up: tuple[RestoredQueuedMessage, ...]
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -2282,6 +2291,15 @@ def parse_restored_queued_message(value: object, path: str = "RestoredQueuedMess
     return RestoredQueuedMessage(
         text=required(payload, "text", decode_str, path),
         images=optional(payload, "images", array(parse_image_content), path),
+        host_message_id=optional(payload, "hostMessageId", decode_str, path),
+    )
+
+
+def parse_queued_prompts(value: object, path: str = "QueuedPrompts") -> QueuedPrompts:
+    payload = expect_object(value, path)
+    return QueuedPrompts(
+        steering=required(payload, "steering", array(parse_restored_queued_message), path),
+        follow_up=required(payload, "followUp", array(parse_restored_queued_message), path),
     )
 
 
@@ -3613,12 +3631,21 @@ class WireClient:
         params["subagentId"] = subagent_id
         return required(expect_object(self._command("cancel_subagent", params), "cancel_subagent"), "cancelled", decode_bool, "cancel_subagent")
 
-    def steer_subagent(self, subagent_id: str, message: str) -> None:
+    def steer_subagent(self, subagent_id: str, message: str, *, host_message_id: str | None = None) -> None:
         """Send a message to a running subagent as its user."""
         params: dict[str, object] = {}
         params["subagentId"] = subagent_id
         params["message"] = message
+        if host_message_id is not None:
+            params["hostMessageId"] = host_message_id
         self._command("steer_subagent", params)
+
+    def get_queued_prompts(self, subagent_id: str | None = None) -> QueuedPrompts:
+        """List the user-authored input queued on this session, or on the subagent `subagentId`, without taking it out. A subagent's entries carry no host ids or images."""
+        params: dict[str, object] = {}
+        if subagent_id is not None:
+            params["subagentId"] = subagent_id
+        return parse_queued_prompts(self._command("get_queued_prompts", params), "get_queued_prompts")
 
     def set_subagent_model(self, subagent_id: str, provider: str, model_id: str, *, level: ThinkingLevel | None = None) -> None:
         """Switch the model of one of this session's subagents for that subagent only (the TUI's focused-agent `/switch`): nothing is persisted. Without `level` the subagent takes the default thinking level of the model."""
@@ -4312,6 +4339,7 @@ __all__ = [
     "QueueUpdateEvent",
     "QueuedMessageQueue",
     "QueuedMessagesState",
+    "QueuedPrompts",
     "ReadyEvent",
     "RecapEvent",
     "RedactedThinkingContent",
@@ -4499,6 +4527,7 @@ __all__ = [
     "parse_python_execution_message",
     "parse_queue_update_event",
     "parse_queued_messages_state",
+    "parse_queued_prompts",
     "parse_ready_event",
     "parse_recap_event",
     "parse_redacted_thinking_content",

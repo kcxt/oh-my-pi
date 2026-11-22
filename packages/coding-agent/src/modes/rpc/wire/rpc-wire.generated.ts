@@ -654,6 +654,14 @@ export interface PromoteQueuedMessageResult {
 export interface RestoredQueuedMessage {
 	text: string;
 	images?: ImageContent[];
+	/** The host-assigned id the message was queued under, when it had one. */
+	hostMessageId?: string;
+}
+
+/** The user-authored queued input, oldest first; live steering already sent into the streaming response leads `steering`. */
+export interface QueuedPrompts {
+	steering: RestoredQueuedMessage[];
+	followUp: RestoredQueuedMessage[];
 }
 
 /** User-authored queued input withdrawn before the abort, oldest first. */
@@ -1752,6 +1760,12 @@ export interface CancelSubagentResult {
 export interface SteerSubagentParams {
 	subagentId: string;
 	message: string;
+	/** Host-assigned id stored on the journaled user message entry and echoed on its `message_start`/`message_end` events. */
+	hostMessageId?: string;
+}
+
+export interface GetQueuedPromptsParams {
+	subagentId?: string;
 }
 
 export interface SetSubagentModelParams {
@@ -2034,6 +2048,7 @@ export interface RpcWireCommands {
 	get_subagent_messages: { params: GetSubagentMessagesParams; result: SubagentMessages };
 	cancel_subagent: { params: CancelSubagentParams; result: CancelSubagentResult };
 	steer_subagent: { params: SteerSubagentParams; result: undefined };
+	get_queued_prompts: { params: GetQueuedPromptsParams; result: QueuedPrompts };
 	set_subagent_model: { params: SetSubagentModelParams; result: undefined };
 	resume: { params: ResumeParams; result: undefined };
 	live_start: { params: LiveStartParams; result: LiveStartResult };

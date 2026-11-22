@@ -95,7 +95,8 @@ export type RpcCommand =
 	| { id?: string; type: "get_subagents" }
 	| { id?: string; type: "get_subagent_messages"; subagentId?: string; sessionFile?: string; fromByte?: number }
 	| { id?: string; type: "cancel_subagent"; subagentId: string }
-	| { id?: string; type: "steer_subagent"; subagentId: string; message: string }
+	| { id?: string; type: "steer_subagent"; subagentId: string; message: string; hostMessageId?: string }
+	| { id?: string; type: "get_queued_prompts"; subagentId?: string }
 	| {
 			id?: string;
 			type: "set_subagent_model";
@@ -407,6 +408,12 @@ export interface RpcRemoveQueuedMessageResult {
 	imagesDropped?: true;
 }
 
+/** `get_queued_prompts` result: the user-authored queued input, oldest first, nothing taken out. */
+export interface RpcQueuedPrompts {
+	steering: RestoredQueuedMessage[];
+	followUp: RestoredQueuedMessage[];
+}
+
 /** `abort_and_restore_queue` result: the user-authored queued input withdrawn before the abort, oldest first. */
 export interface RpcAbortAndRestoreQueueResult {
 	steering: RestoredQueuedMessage[];
@@ -577,6 +584,7 @@ export type RpcResponse =
 			data: { cancelled: boolean };
 	  }
 	| { id?: string; type: "response"; command: "steer_subagent"; success: true }
+	| { id?: string; type: "response"; command: "get_queued_prompts"; success: true; data: RpcQueuedPrompts }
 	| { id?: string; type: "response"; command: "set_subagent_model"; success: true }
 	| { id?: string; type: "response"; command: "resume"; success: true }
 
