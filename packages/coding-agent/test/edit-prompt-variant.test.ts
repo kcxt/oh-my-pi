@@ -5,8 +5,8 @@ import { resolveEditToolDescription } from "@oh-my-pi/pi-coding-agent/edit";
 describe("resolveEditToolDescription", () => {
 	test("renders the compact prompt for models whose catalog policy selects it", () => {
 		const compact = resolveEditToolDescription("hashline", { editPromptVariant: "compact" });
-		expect(compact.startsWith("Hashline patches.")).toBe(true);
-		expect(compact).not.toContain("<anti-patterns>");
+		expect(compact).not.toContain("<ops>");
+		expect(compact).not.toContain("<example>");
 		// Density changes, language does not: every PUT/CUT/REM/MV op stays
 		// expressible in the compact rendering.
 		expect(compact).toContain("PUT N.=M:");

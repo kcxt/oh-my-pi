@@ -1,19 +1,25 @@
-Hashline patches existing files; new files: `write`. Each file: `[PATH#TAG]`, `TAG` required 4-hex snapshot from latest `read`/`search`. Numbers: original `LINE:TEXT`, never hunk-shifted.
+Edit existing files by line number; create files with `write`.
+
+Each file's section starts with `[PATH#TAG]`, TAG being the 4-hex tag from your latest `read`/`search` of it. Ops use that read's line numbers; earlier ops never shift them.
 
 <ops>
-`PUT N.=M:` replace inclusive N–M with `+` body (`N.=N` for one line); `PUT N*:` replace block N.
-`PUT <N:`/`PUT >N:` insert before/after N (`<1` head, `>$` tail). `PUT >N*:` insert after block N at sibling depth; inside, use `PUT >M:` at closer.
-`CUT N.=M`/`CUT N*` delete and capture, optionally as `@name`.
-`PUT <N @name`/`PUT >N @name` paste at gap (omit name for anonymous CUT); `PUT N.=M @name`/`PUT N* @name` paste over range/block (name REQUIRED). Register pastes have NO body; named registers persist across calls.
-`REM` delete file; `MV DEST` rename after prior edits (quote spaced paths).
+Only `:` ops take a `+` body, of any length.
+`PUT N.=M:` replace lines N–M (`N.=N`: one line).
+`PUT <N:` / `PUT >N:` insert before / after N; `<1` top, `>$` end.
+`CUT N.=M` delete N–M (never an empty PUT).
+`N*` instead of `N.=M` is the block opening at N (a function, class or Markdown section): `PUT N*:`, `CUT N*`, `PUT >N*:` (insert after it).
+Move: `CUT N.=M @x` (or `CUT N* @x`), then `PUT <K @x` / `PUT >K @x` at a gap or `PUT K.=L @x` / `PUT K* @x` over lines, in any file's section. No body; registers persist across calls.
+`REM` delete the file; `MV DEST` rename it after its other ops (quote spaced paths).
 </ops>
 
 <rules>
-- `:` ops only: body rows `+TEXT` verbatim incl. indent; lone `+` blank. Literal `- item`/`+ item` → `+- item`/`++ item`. NEVER `-`/bare context. Body length independent of range; delete with CUT, not empty PUT.
-- Touch displayed changed lines only; `…`, `..`, collapsed `N-M:` and out-of-window lines UNSEEN. Re-read first. Tight ranges: split nonadjacent changes; NEVER include keepers or start/end mid-expression/block. Pure addition uses gap PUT.
-- `*` requires multi-line opener, NEVER closer/last/inner statement; use range/gap for one statement. Anchor first decorator/attribute/doc-comment to include it; standalone comments need explicit range.
-- Markdown heading blocks run through deeper headings until next same/higher; after section `PUT >N*:`, end body with blank line.
-- NEVER restyle unrelated code. After EVERY edit tag/numbers change: use edit response or fresh `read`; stale tag/surprise → STOP, re-read.
+- Body: `+` then the exact line, indentation included; lone `+` is blank; text starting `+`/`-` is `++…`/`+-…`. Never send `-` lines or unchanged context.
+- Use only lines the read showed; `…`, `..`, `N-M:` summaries and lines outside the window are unread.
+- Ranges cover only changed lines and never start or end mid-expression. Separate changes, separate ops; add lines by inserting.
+- `N*` names a block's first line (first decorator, attribute or doc comment), never an inner or closing one; one statement takes a range. To add inside a block, insert before its closer.
+- A Markdown heading's block runs to the next heading of equal or higher level; end an inserted section with a lone `+`.
+- Every edit changes the tag and numbers: reuse the header from its response, or re-read. Surprised by a result? Re-read.
+- Don't restyle unrelated code.
 </rules>
 
 <example>
@@ -27,5 +33,4 @@ PUT 1*:
 PUT >2:
 +- task
 ```
-Cross-file move: `CUT 1* @fn` in source, then `PUT <1 @fn` in destination section.
 </example>

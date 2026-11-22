@@ -1,18 +1,13 @@
-Persistent bash 5.3.
-cwd will reset after each turn, don't rely on cd; `pty` = interactive.
-Internal URIs work as paths for builtins/coreutils, redirects, globs.
-In-process builtins, ahead of PATH: {{join builtins ", "}}.
+Persistent bash 5.3. The working directory resets each turn: use absolute paths or `cd` in the same command. `pty: true` for interactive programs.
+Internal URIs work as paths in builtins, redirects and globs. In-process builtins, ahead of PATH: {{join builtins ", "}}.
+View files with `read`, not `cat`/`sed -n`/`head`.
 {{#if asyncEnabled}}
-`async` defers finite results but keeps the deadline (default {{defaultTimeoutSec}}s); `timeout: 0` for watchers and long jobs.
+`async: true` returns now and delivers the result later, within `timeout` (default {{defaultTimeoutSec}}s); `timeout: 0` for watchers and long jobs.
 {{/if}}
-Don't trunc output by habit, result will be summarized and saved as an artifact.
+Don't truncate output by habit; long output is summarised and saved as an artifact.
 {{#if hasLaunch}}
-Long-lived services:
-- unique name; ready requires name; no async/timeout; pty defaults true.
-- ready needs log regex or port (both if given); host defaults 127.0.0.1, ready.timeout 30s.
+Services: unique `name` plus a `ready` check (`log` regex and/or `port`, both must match if both given; `host` 127.0.0.1, `ready.timeout` 30s by default). No `async`/`timeout`; `pty` defaults to true.
 {{/if}}
 {{#if autoBackgroundEnabled}}
-Non-`pty` calls still running after {{autoBackgroundSeconds}}s (or 1s before `timeout`, if sooner) usually move to background job `bg_N` and keep running to `timeout`.
-No backgrounding when the client terminal runs the command or the job cap is reached.
-The result arrives automatically as a follow-up message. NEVER poll.
+A non-`pty` command still running after {{autoBackgroundSeconds}}s (or 1s before `timeout`) usually becomes background job `bg_N`, runs until `timeout`, and reports as a follow-up message. Never poll. Not when the user's terminal runs it or the job limit is reached.
 {{/if}}
