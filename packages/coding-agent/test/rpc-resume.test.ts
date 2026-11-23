@@ -80,6 +80,22 @@ describe("RPC resume on a live process", () => {
 		expect(await hostResumeEntries()).toEqual([]);
 	}, 30_000);
 
+	test("answers once the continuation is admitted, while its run is still streaming", async () => {
+		await client.promptAndWait("stall-on-continue");
+		const restarted = Promise.withResolvers<void>();
+		const off = client.onEvent(event => {
+			if (event.type === "agent_start") restarted.resolve();
+		});
+
+		await client.resume({ hostMessageId: "host-long" });
+		await restarted.promise;
+		off();
+
+		// An abort behind the continuation is not queued on it: it answers while the run streams.
+		await client.abort();
+		expect((await client.getState()).isStreaming).toBe(false);
+	}, 30_000);
+
 	test("a streaming session is interrupted and continued", async () => {
 		await client.prompt("slow");
 		await untilStreaming();

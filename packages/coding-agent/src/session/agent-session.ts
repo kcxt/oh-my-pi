@@ -8699,11 +8699,16 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 	 * asks the model to pick its work back up. A conversation with neither a user
 	 * turn nor a compaction/branch summary of earlier ones cannot be continued.
 	 *
+	 * `onAdmitted` fires once the continuation owns the session (the directive prompt claimed it, or the
+	 * continuation is scheduled); it never fires for a refused resume. The returned promise settles with the
+	 * continuation's run, which can outlast any host request deadline: a host that must answer at admission
+	 * races the two.
+	 *
 	 * @throws {AgentBusyError} when another turn claims the session between the interrupt and the continuation.
 	 * @throws {Error} when there is no conversation to resume.
 	 */
-	async resume(): Promise<void> {
-		if (!this.isStreaming) return this.#resumeIdle();
+	async resume(onAdmitted?: () => void): Promise<void> {
+		if (!this.isStreaming) return this.#resumeIdle(onAdmitted);
 		// waitForIdle() reads a pending unwind as busy. Hold one from the interrupt
 		// until the continuation is live, so a host driving this session to a result
 		// (the subagent executor) never mistakes the gap for the end of the run.
@@ -8716,8 +8721,14 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 			const queued = this.hasInterruptibleInput;
 			await this.abort({ reason: USER_INTERRUPT_LABEL, deliverQueuedMessages: queued });
 			// Interrupt-and-send: the abort's own drain resumes the run with the queued input.
-			if (queued) return;
-			await this.#resumeIdle(() => void this.#waitForPromptDispatchLive().then(release));
+			if (queued) {
+				onAdmitted?.();
+				return;
+			}
+			await this.#resumeIdle(() => {
+				void this.#waitForPromptDispatchLive().then(release);
+				onAdmitted?.();
+			});
 		} finally {
 			release();
 		}
@@ -8725,8 +8736,8 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 
 	/**
 	 * {@link resume} on an idle session. `onAdmitted` fires once the directive
-	 * prompt claims the session; the bare resume schedules its continuation
-	 * before returning.
+	 * prompt claims the session, or right after the bare resume schedules its
+	 * continuation.
 	 */
 	async #resumeIdle(onAdmitted?: () => void): Promise<void> {
 		const prompt = this.#recovery.prepareResume();
@@ -8754,6 +8765,7 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 		this.#todo.resetCycle();
 		this.#resetPromptMaintenanceState();
 		this.#scheduleAgentContinue({ source: "manual-continue", turnRecords: [prompt] });
+		onAdmitted?.();
 	}
 
 	/**

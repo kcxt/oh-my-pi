@@ -12,7 +12,8 @@ import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manage
 // Real RPC dispatch over a session persisted under the test's temp root; only model replies are scripted.
 // The root arrives as argv so storage can never land in an inherited cwd such as the repo checkout.
 // A prompt mentioning "slow" streams until the test aborts it; "echo" answers with the JSON of the
-// context the model received; everything else answers "Done".
+// context the model received; a conversation mentioning "stall-on-continue" answers "Done" but then
+// streams until aborted once the `.` continue directive arrives; everything else answers "Done".
 const root = process.argv[2];
 if (!root || root.startsWith("-")) throw new Error("host-rpc-agent: expected the temp root as the first argument");
 process.chdir(root);
@@ -24,6 +25,9 @@ const mock = createMockModel({
 	handler: context => {
 		const last = JSON.stringify(context.messages.at(-1)?.content);
 		if (last.includes("echo")) return { content: [JSON.stringify(context.messages)] };
+		if (last.includes("Continue.") && JSON.stringify(context.messages).includes("stall-on-continue")) {
+			return { content: ["Done"], delayMs: 600_000 };
+		}
 		if (!last.includes("slow")) return { content: ["Done"] };
 		// The delay only bounds a leaked process; the test aborts the turn.
 		return { content: ["Done"], delayMs: 600_000 };

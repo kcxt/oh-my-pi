@@ -445,14 +445,15 @@ const BACKGROUND_COMMANDS: ReadonlySet<string> = new Set<RpcCommand["type"]>([
 /**
  * Dispatch a single parsed frame from the RPC input stream.
  *
- * `bash`, `predict_word`, `prompt` and `steer_subagent` are dispatched in the
+ * `bash`, `predict_word`, `prompt`, `resume` and `steer_subagent` are dispatched in the
  * background so the caller can keep reading subsequent frames while one is
  * still settling: a `bash` command can run for a long time, and a `prompt`
  * command's response is held until the message is admitted, which can span
  * real wall-clock time (image normalization, a vision-model description call).
  * `steer_subagent` likewise holds its response until the subagent accepts the
  * message, which for a subagent between turns includes its whole
- * pre-`agent_start` setup. Backgrounding them lets a client send `abort_bash`
+ * pre-`agent_start` setup. `resume` answers at admission of the continuation, so
+ * it cannot hold the command queue (or an `abort`) behind the run it starts. Backgrounding them lets a client send `abort_bash`
  * while a shell command runs, or `abort` (and `steer`/`follow_up`/`get_state`)
  * while a `prompt` or `steer_subagent` is still admitting. `predict_word` is
  * backgrounded too, so a cold prediction engine never stalls the command queue
@@ -492,7 +493,8 @@ export function dispatchRpcInputFrame(parsed: unknown, deps: RpcInputFrameDeps):
 		command.type === "steer" ||
 		command.type === "dictation_start" ||
 		command.type === "follow_up" ||
-		command.type === "steer_subagent"
+		command.type === "steer_subagent" ||
+		command.type === "resume"
 	) {
 		const task = (async () => {
 			try {
@@ -909,7 +911,7 @@ export async function handleRpcSetSubagentModel(
 /** The session surface `resume` drives: the main session or a subagent's handle. */
 interface RpcResumable {
 	sessionManager: { appendCustomEntry(customType: string, data?: unknown): unknown };
-	resume(): Promise<void>;
+	resume(onAdmitted?: () => void): Promise<void>;
 }
 
 /**
@@ -920,6 +922,9 @@ interface RpcResumable {
  * `.` it sent as a user turn; custom entries never reach the model. The entry stays when there is nothing
  * to resume, and `resume()` then rejects.
  *
+ * Settles with the continuation's run; `onAdmitted` fires once the continuation owns the session. A
+ * refusal rejects before `onAdmitted`.
+ *
  * A subagent is reachable while this session's roster knows it or its transcript reference is retained: a
  * running one, or a finished one that is still registered (idle, or parked and revived from its transcript,
  * as `task resume` does). Rejects when the id is unknown or is another session's agent.
@@ -928,6 +933,7 @@ export async function handleRpcResume(
 	session: RpcResumable,
 	subagentRegistry: Pick<RpcSubagentRegistry, "resolveSessionFile"> | undefined,
 	options: { subagentId?: string; hostMessageId?: string },
+	onAdmitted?: () => void,
 ): Promise<void> {
 	let target: RpcResumable = session;
 	const { subagentId } = options;
@@ -951,7 +957,7 @@ export async function handleRpcResume(
 	if (options.hostMessageId) {
 		target.sessionManager.appendCustomEntry("host-resume", { hostMessageId: options.hostMessageId, text: "." });
 	}
-	await target.resume();
+	await target.resume(onAdmitted);
 }
 
 export async function handleRpcSessionChange(
@@ -2711,13 +2717,19 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				) {
 					return error(id, "resume", "hostMessageId must be a non-empty string");
 				}
+				// Answered at admission, like `prompt`: the continuation's run can outlast any client deadline.
+				// A refusal (or a failure before admission) rejects first and answers as an error.
+				const admitted = Promise.withResolvers<void>();
+				const run = handleRpcResume(session, subagentRegistry, command, admitted.resolve);
 				try {
-					await handleRpcResume(session, subagentRegistry, command);
-					return success(id, "resume");
+					await Promise.race([admitted.promise, run]);
 				} catch (err) {
 					if (err instanceof AgentBusyError) return error(id, "resume", err.message, "session_busy");
 					return error(id, "resume", err instanceof Error ? err.message : String(err));
 				}
+				// Already acknowledged: a later failure owes a same-id error frame.
+				run.catch(onPromptError(id, "resume"));
+				return success(id, "resume");
 			}
 
 			// =================================================================
